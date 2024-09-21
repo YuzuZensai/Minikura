@@ -1,0 +1,24 @@
+{
+	"name": "@minikura/backend",
+	"module": "src/index.ts",
+	"type": "module",
+	"exports": "./src/index.ts",
+	"scripts": {
+		"dev": "bun --watch src/index.ts",
+		"build": "bun build src/index.ts --target bun --outdir ./dist",
+		"start": "NODE_ENV=production bun dist/index.js",
+		"test": "bun test"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.1.9"
+	},
+	"peerDependencies": {
+		"typescript": "^5.0.0"
+	},
+	"dependencies": {
+		"@elysiajs/swagger": "^1.1.1",
+		"@minikura/db": "workspace:*",
+		"dotenv": "^16.4.5",
+		"elysia": "^1.1.13"
+	}
+}
