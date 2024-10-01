@@ -10,8 +10,9 @@
 		"lint:fix": "biome lint --apply .",
 		"format": "biome format .",
 		"format:fix": "biome format --write .",
-		"studio": "drizzle-kit studio",
-		"push": "drizzle-kit push"
+		"db:generate": "bun --filter @minikura/db generate",
+		"db:studio": "bun --filter @minikura/db studio",
+		"db:push": "bun --filter @minikura/db push"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.1",

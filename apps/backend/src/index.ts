@@ -3,7 +3,7 @@ const dotenv = dotenvLoad();
 
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
-import { db } from "@minikura/db";
+import { prisma } from "@minikura/db";
 
 const app = new Elysia()
   .use(swagger())
@@ -13,7 +13,7 @@ const app = new Elysia()
   .get("/hello", "Do you miss me?")
   .listen(3000, async () => {
     console.log("Server is running on port 3000");
-    const result = await db.query.server.findMany();
+    const result = await prisma.server.findMany();
     console.log(result);
   });
 
