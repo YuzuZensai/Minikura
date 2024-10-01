@@ -1,3 +1,6 @@
+import { dotenvLoad } from "dotenv-mono";
+const dotenv = dotenvLoad();
+
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { db } from "@minikura/db";
