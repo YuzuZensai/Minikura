@@ -16,23 +16,48 @@ datasource db {
 enum ServerType {
   STATEFUL
   STATELESS
-  REVERSE_PROXY
+}
+
+model ReverseProxyServer {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  api_key     String   @unique
+  address     String
+  port        Int
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 }
 
 model Server {
-  id        String   @id @default(cuid())
-  name     String @unique
-  address  String
-  port     Int
-  type     ServerType
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String     @id @default(cuid())
+  name          String     @unique
+  description   String?
+  address       String
+  port          Int
+  type          ServerType
+  api_key       String     @unique
+  join_priority Int?
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(cuid())
+  username   String    @unique
+  password   String
+  sessions   Session[]
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id])
+  revoked    Boolean  @default(false)
+  expires_at DateTime
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
