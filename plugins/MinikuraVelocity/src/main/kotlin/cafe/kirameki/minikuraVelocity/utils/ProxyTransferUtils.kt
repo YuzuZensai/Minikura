@@ -31,7 +31,13 @@ object ProxyTransferUtils {
         val targetAddress = InetSocketAddress(targetServer.address, targetServer.port)
         val currentProxyName = redisBungeeApi.proxyId
 
-        val players = server.allPlayers.toList()
+        val playerOnThisProxy = redisBungeeApi.getPlayersOnProxy(currentProxyName)
+            .map { it.toString() }
+
+        val players = server.allPlayers
+            .toList()
+            .filter { playerOnThisProxy.contains(it.uniqueId.toString()) }
+
         val batchSize = (players.size * 0.05).coerceAtLeast(1.0).toInt() // 5% of players per batch to avoid overloading the server
 
         var currentIndex = 0

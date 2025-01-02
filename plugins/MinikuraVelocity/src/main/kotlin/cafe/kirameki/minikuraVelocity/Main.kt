@@ -9,6 +9,7 @@ import cafe.kirameki.minikuraVelocity.utils.createWebSocketClient
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.google.inject.Inject
+import com.imaginarycode.minecraft.redisbungee.RedisBungeeAPI
 import com.velocitypowered.api.command.CommandManager
 import com.velocitypowered.api.command.CommandMeta
 import com.velocitypowered.api.command.SimpleCommand
@@ -43,6 +44,7 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
     private val apiUrl: String = System.getenv("MINIKURA_API_URL") ?: "http://localhost:3000"
     private val websocketUrl: String = System.getenv("MINIKURA_WEBSOCKET_URL") ?: "ws://localhost:3000/ws"
     private var acceptingTransfers = AtomicBoolean(false)
+    private val redisBungeeApi = RedisBungeeAPI.getRedisBungeeApi()
 
     @Subscribe
     fun onProxyInitialization(event: ProxyInitializeEvent?) {
@@ -85,6 +87,7 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
             .plugin(this)
             .build()
 
+        // TODO: Rework this command and support <origin> and <destination> arguments
         val migrateCommand = SimpleCommand { p ->
             val source = p.source()
             val args = p.arguments()
@@ -99,6 +102,11 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
 
             if (targetServer == null) {
                 source.sendMessage(Component.text("Server '$targetServerName' not found."))
+                return@SimpleCommand
+            }
+
+            if (targetServer.name == redisBungeeApi.proxyId) {
+                source.sendMessage(Component.text("Target server cannot be the current proxy server."))
                 return@SimpleCommand
             }
 
