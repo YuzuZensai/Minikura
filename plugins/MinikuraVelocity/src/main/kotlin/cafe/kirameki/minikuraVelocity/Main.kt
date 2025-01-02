@@ -1,9 +1,10 @@
 package cafe.kirameki.minikuraVelocity
 
-import cafe.kirameki.minikuraVelocity.listeners.ServerConnectionHandler
+import cafe.kirameki.minikuraVelocity.listeners.ProxyTransferHandler
 import cafe.kirameki.minikuraVelocity.models.ReverseProxyServerData
 import cafe.kirameki.minikuraVelocity.models.ServerData
 import cafe.kirameki.minikuraVelocity.store.ServerDataStore
+import cafe.kirameki.minikuraVelocity.utils.ProxyTransferUtils
 import cafe.kirameki.minikuraVelocity.utils.createWebSocketClient
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -13,6 +14,7 @@ import com.velocitypowered.api.command.CommandMeta
 import com.velocitypowered.api.command.SimpleCommand
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
+import com.velocitypowered.api.plugin.Dependency
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.proxy.ProxyServer
 import com.velocitypowered.api.proxy.server.RegisteredServer
@@ -23,38 +25,38 @@ import okhttp3.Request
 import org.slf4j.Logger
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
-@Plugin(id = "minikura-velocity", name = "MinikuraVelocity", version = "1.0")
+
+@Plugin(
+    id = "minikura-velocity",
+    name = "MinikuraVelocity",
+    version = "1.0",
+    dependencies = [
+        Dependency(id = "redisbungee")
+    ]
+)
 class Main @Inject constructor(private val logger: Logger, private val server: ProxyServer) {
     private val servers: MutableMap<String, RegisteredServer> = HashMap()
     private val client = OkHttpClient()
     private val apiKey: String = System.getenv("MINIKURA_API_KEY") ?: ""
     private val apiUrl: String = System.getenv("MINIKURA_API_URL") ?: "http://localhost:3000"
     private val websocketUrl: String = System.getenv("MINIKURA_WEBSOCKET_URL") ?: "ws://localhost:3000/ws"
+    private var acceptingTransfers = AtomicBoolean(false)
 
     @Subscribe
     fun onProxyInitialization(event: ProxyInitializeEvent?) {
         logger.info("Minikura-Velocity is initializing...")
 
-        val client = createWebSocketClient(this, server, websocketUrl)
+        ProxyTransferUtils.server = server
+        ProxyTransferUtils.plugin = this
+        ProxyTransferUtils.logger = logger
+        ProxyTransferUtils.acceptingTransfers = acceptingTransfers
+
+        val client = createWebSocketClient(this, logger, server, websocketUrl)
         client.connect()
 
         val commandManager: CommandManager = server.commandManager
-
-        val serversCommandMeta: CommandMeta = commandManager.metaBuilder("servers")
-            .plugin(this)
-            .aliases("listservers", "serverlist")
-            .build()
-
-        val serversCommand = SimpleCommand { p ->
-            val source = p.source()
-            source.sendMessage(Component.text("Available servers:"))
-            for ((name, server) in servers) {
-                source.sendMessage(Component.text(" - $name (${server.serverInfo.address})"))
-            }
-        }
-
-        commandManager.register(serversCommandMeta, serversCommand)
 
         val refreshCommandMeta: CommandMeta = commandManager.metaBuilder("refresh")
             .plugin(this)
@@ -63,12 +65,21 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
         val refreshCommand = SimpleCommand { p ->
             val source = p.source()
             source.sendMessage(Component.text("Refreshing server list..."))
-            fetchServers()
-            fetchReverseProxyServers()
-            source.sendMessage(Component.text("Server list refreshed successfully!"))
+
+            Executors.newSingleThreadExecutor().submit {
+                fetchServers()
+                fetchReverseProxyServers()
+                source.sendMessage(Component.text("Server list refreshed successfully!"))
+            }
         }
 
-        commandManager.register(refreshCommandMeta, refreshCommand)
+        val serversCommandMeta: CommandMeta = commandManager.metaBuilder("server")
+            .plugin(this)
+            .build()
+
+        val endCommandMeta: CommandMeta = commandManager.metaBuilder("end")
+            .plugin(this)
+            .build()
 
         val migrateCommandMeta: CommandMeta = commandManager.metaBuilder("migrate")
             .plugin(this)
@@ -91,17 +102,24 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
                 return@SimpleCommand
             }
 
-            migratePlayersToServer(targetServer)
+            ProxyTransferUtils.migratePlayersToServer(targetServer)
             source.sendMessage(Component.text("Migrating players to server '$targetServerName'..."))
         }
 
+        commandManager.register(serversCommandMeta, ServerCommand.createServerCommand(server))
+        commandManager.register(endCommandMeta, EndCommand.createEndCommand(server))
+        commandManager.register(refreshCommandMeta, refreshCommand)
         commandManager.register(migrateCommandMeta, migrateCommand)
 
-        val connectionHandler = ServerConnectionHandler(servers, logger)
+        val connectionHandler = ProxyTransferHandler(servers, logger)
         server.eventManager.register(this, connectionHandler)
 
-        fetchServers()
-        fetchReverseProxyServers()
+        Executors.newSingleThreadExecutor().submit {
+            fetchServers()
+            fetchReverseProxyServers()
+            acceptingTransfers.set(true)
+            logger.info("Ready to accept player new connections/proxy transfers.")
+        }
 
         logger.info("Minikura-Velocity has been initialized.")
     }
@@ -112,25 +130,23 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
             .header("Authorization", "Bearer $apiKey")
             .build()
 
-        Executors.newSingleThreadExecutor().submit {
-            try {
-                val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string()
-                    val fetchedServers = parseReverseProxyServersData(responseBody)
+        try {
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string()
+                val fetchedServers = parseReverseProxyServersData(responseBody)
 
-                    server.scheduler.buildTask(this, Runnable {
-                        synchronized(ServerDataStore) {
-                            ServerDataStore.clearReverseProxyServers()
-                            ServerDataStore.addAllReverseProxyServers(fetchedServers)
-                        }
-                    }).schedule()
-                } else {
-                    logger.error("Failed to fetch reverse proxy servers: ${response.message}")
-                }
-            } catch (e: Exception) {
-                logger.error("Error fetching reverse proxy servers: ${e.message}", e)
+                server.scheduler.buildTask(this, Runnable {
+                    synchronized(ServerDataStore) {
+                        ServerDataStore.clearReverseProxyServers()
+                        ServerDataStore.addAllReverseProxyServers(fetchedServers)
+                    }
+                }).schedule()
+            } else {
+                logger.error("Failed to fetch reverse proxy servers: ${response.message}")
             }
+        } catch (e: Exception) {
+            logger.error("Error fetching reverse proxy servers: ${e.message}", e)
         }
     }
 
@@ -141,26 +157,24 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
             .header("Authorization", "Bearer $apiKey")
             .build()
 
-        Executors.newSingleThreadExecutor().submit {
-            try {
-                val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string()
-                    val fetchedServers = parseServersData(responseBody)
+        try {
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string()
+                val fetchedServers = parseServersData(responseBody)
 
-                    server.scheduler.buildTask(this, Runnable {
-                        synchronized(ServerDataStore) {
-                            ServerDataStore.clearServers()
-                            ServerDataStore.addAllServers(fetchedServers)
-                        }
-                        populateServers(fetchedServers)
-                    }).schedule()
-                } else {
-                    logger.error("Failed to fetch servers: ${response.message}")
-                }
-            } catch (e: Exception) {
-                logger.error("Error fetching servers: ${e.message}", e)
+                server.scheduler.buildTask(this, Runnable {
+                    synchronized(ServerDataStore) {
+                        ServerDataStore.clearServers()
+                        ServerDataStore.addAllServers(fetchedServers)
+                    }
+                    populateServers(fetchedServers)
+                }).schedule()
+            } else {
+                logger.error("Failed to fetch servers: ${response.message}")
             }
+        } catch (e: Exception) {
+            logger.error("Error fetching servers: ${e.message}", e)
         }
     }
 
@@ -189,14 +203,6 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
             val registeredServer = server.createRawRegisteredServer(serverInfo)
             servers[data.name] = registeredServer
             this.server.registerServer(registeredServer.serverInfo)
-        }
-    }
-
-    private fun migratePlayersToServer(targetServer: ReverseProxyServerData) {
-        val targetAddress = InetSocketAddress(targetServer.address, targetServer.port)
-
-        server.allPlayers.forEach { player ->
-            player.transferToHost(targetAddress)
         }
     }
 
