@@ -111,7 +111,7 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
         commandManager.register(refreshCommandMeta, refreshCommand)
         commandManager.register(migrateCommandMeta, migrateCommand)
 
-        val connectionHandler = ProxyTransferHandler(servers, logger)
+        val connectionHandler = ProxyTransferHandler(servers, logger, acceptingTransfers)
         server.eventManager.register(this, connectionHandler)
 
         Executors.newSingleThreadExecutor().submit {

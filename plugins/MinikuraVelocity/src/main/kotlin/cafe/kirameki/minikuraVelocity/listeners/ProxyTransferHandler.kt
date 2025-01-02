@@ -5,25 +5,36 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.imaginarycode.minecraft.redisbungee.RedisBungeeAPI
 import com.velocitypowered.api.event.Subscribe
+import com.velocitypowered.api.event.connection.PreLoginEvent
 import com.velocitypowered.api.event.player.CookieReceiveEvent
 import com.velocitypowered.api.event.player.PlayerChooseInitialServerEvent
 import com.velocitypowered.api.proxy.server.RegisteredServer
 import net.kyori.adventure.key.Key
+import net.kyori.adventure.text.Component
 import org.slf4j.Logger
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ProxyTransferHandler(
     private val servers: Map<String, RegisteredServer>,
-    private val logger: Logger
+    private val logger: Logger,
+    private val acceptingTransfer: AtomicBoolean
 ) {
     private val cookieFutures = mutableMapOf<String, CompletableFuture<String>>()
     private var jwtSecret = System.getenv("MINIKURA_JWT_SECRET") ?: "secret"
     private val jwtAlgorithm = Algorithm.HMAC256(jwtSecret)
     private val jwtVerifier = JWT.require(jwtAlgorithm).withIssuer("minikura").build()
     private val redisBungeeApi = RedisBungeeAPI.getRedisBungeeApi()
+
+    @Subscribe
+    fun onPreLogin(event: PreLoginEvent) {
+        if (!acceptingTransfer.get()) {
+            event.result = PreLoginEvent.PreLoginComponentResult.denied(Component.text("Proxy are currently not accepting new connections."))
+        }
+    }
 
     @Subscribe
     fun onCookieReceiveEvent(event: CookieReceiveEvent) {
