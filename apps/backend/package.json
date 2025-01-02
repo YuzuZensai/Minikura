@@ -18,6 +18,7 @@
 	"dependencies": {
 		"@elysiajs/swagger": "^1.1.1",
 		"@minikura/db": "workspace:*",
+		"argon2": "^0.41.1",
 		"dotenv": "^16.4.5",
 		"elysia": "^1.1.13"
 	}
