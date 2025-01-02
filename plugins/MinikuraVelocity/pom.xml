@@ -233,6 +233,10 @@
             <id>papermc-repo</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -267,6 +271,17 @@
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
             <version>4.12.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ProxioDev.ValioBungee</groupId>
+            <artifactId>RedisBungee-Velocity</artifactId>
+            <version>0.12.5</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.auth0</groupId>
+            <artifactId>java-jwt</artifactId>
+            <version>4.4.0</version>
         </dependency>
     </dependencies>
 </project>
