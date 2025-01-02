@@ -12,7 +12,8 @@
 		"format:fix": "biome format --write .",
 		"db:generate": "bun --filter @minikura/db generate",
 		"db:studio": "bun --filter @minikura/db studio",
-		"db:push": "bun --filter @minikura/db push"
+		"db:push": "bun --filter @minikura/db push",
+		"db:reset": "bun --filter @minikura/db reset"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.1",
