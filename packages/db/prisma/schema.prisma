@@ -1,12 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["omitApi"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -19,28 +12,35 @@ enum ServerType {
   STATELESS
 }
 
+enum ReverseProxyServerType {
+  VELOCITY
+  BUNGEECORD
+}
+
 model ReverseProxyServer {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  api_key     String   @unique
-  address     String
-  port        Int
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id               String                      @id @default(cuid())
+  type             ReverseProxyServerType
+  description      String?
+  external_address String
+  external_port    Int
+  listen_port      Int                         @default(25565)
+  memory           String                      @default("512M")
+  api_key          String                      @unique
+  env_variables    CustomEnvironmentVariable[] @relation("ReverseProxyServerEnvVars")
+  created_at       DateTime                    @default(now())
+  updated_at       DateTime                    @updatedAt
 }
 
 model Server {
-  id            String     @id @default(cuid())
-  name          String     @unique
-  description   String?
-  address       String
-  port          Int
+  id            String                      @id @default(cuid())
   type          ServerType
-  api_key       String     @unique
-  join_priority Int?
-  created_at    DateTime   @default(now())
-  updated_at    DateTime   @updatedAt
+  description   String?
+  listen_port   Int                         @default(25565)
+  memory        String                      @default("1G")
+  env_variables CustomEnvironmentVariable[] @relation("ServerEnvVars")
+  api_key       String                      @unique
+  created_at    DateTime                    @default(now())
+  updated_at    DateTime                    @updatedAt
 }
 
 model User {
@@ -61,4 +61,21 @@ model Session {
   expires_at DateTime
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+}
+
+model CustomEnvironmentVariable {
+  id         String   @id @default(cuid())
+  key        String
+  value      String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  server_id String?
+  server    Server? @relation("ServerEnvVars", fields: [server_id], references: [id], onDelete: Cascade)
+
+  reverse_proxy_id     String?
+  reverse_proxy_server ReverseProxyServer? @relation("ReverseProxyServerEnvVars", fields: [reverse_proxy_id], references: [id], onDelete: Cascade)
+
+  @@unique([key, server_id])
+  @@unique([key, reverse_proxy_id])
 }
