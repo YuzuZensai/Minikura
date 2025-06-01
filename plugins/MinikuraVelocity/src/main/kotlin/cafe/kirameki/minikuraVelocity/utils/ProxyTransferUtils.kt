@@ -28,7 +28,7 @@ object ProxyTransferUtils {
     lateinit var acceptingTransfers: AtomicBoolean
 
     fun migratePlayersToServer(targetServer: ReverseProxyServerData, disconnectFailed : Boolean = false): ScheduledTask {
-        val targetAddress = InetSocketAddress(targetServer.address, targetServer.port)
+        val targetAddress = InetSocketAddress(targetServer.external_address, targetServer.external_port)
         val currentProxyName = redisBungeeApi.proxyId
 
         val playerOnThisProxy = redisBungeeApi.getPlayersOnProxy(currentProxyName)
@@ -77,7 +77,7 @@ object ProxyTransferUtils {
                         player.disconnect(Component.text("Failed to migrate you to the target server. Please reconnect."))
                     }
                 } catch (e: Exception) {
-                    logger.error("Error migrating player ${player.username} to server ${targetServer.name}: ${e.message}", e)
+                    logger.error("Error migrating player ${player.username} to server ${targetServer.id}: ${e.message}", e)
                     if (disconnectFailed) {
                         player.disconnect(Component.text("Failed to migrate you to the target server. Please reconnect."))
                     }

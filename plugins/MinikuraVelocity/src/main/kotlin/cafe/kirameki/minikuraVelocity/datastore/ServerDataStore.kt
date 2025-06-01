@@ -29,11 +29,11 @@ object ServerDataStore {
     }
 
     fun getServer(name: String): ServerData? {
-        return servers.find { it.name == name }
+        return servers.find { it.id == name }
     }
 
     fun getReverseProxyServer(name: String): ReverseProxyServerData? {
-        return reverseProxyServers.find { it.name == name }
+        return reverseProxyServers.find { it.id == name }
     }
 
     fun getServers(): List<ServerData> {
