@@ -41,8 +41,8 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
     private val servers: MutableMap<String, RegisteredServer> = HashMap()
     private val client = OkHttpClient()
     private val apiKey: String = System.getenv("MINIKURA_API_KEY") ?: ""
-    private val apiUrl: String = System.getenv("MINIKURA_API_URL") ?: "http://localhost:3000"
-    private val websocketUrl: String = System.getenv("MINIKURA_WEBSOCKET_URL") ?: "ws://localhost:3000/ws"
+    private val apiUrl: String = System.getenv("MINIKURA_API_URL") ?: "http://localhost:3000/api"
+    private val websocketUrl: String = System.getenv("MINIKURA_WEBSOCKET_URL") ?: "ws://localhost:3000/ws?apiKey=$apiKey"
     private var acceptingTransfers = AtomicBoolean(false)
     private val redisBungeeApi = RedisBungeeAPI.getRedisBungeeApi()
 
@@ -87,6 +87,10 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
             .plugin(this)
             .build()
 
+        val getallServerCommandMeta: CommandMeta = commandManager.metaBuilder("getallserver")
+            .plugin(this)
+            .build()
+
         // TODO: Rework this command and support <origin> and <destination> arguments
         val migrateCommand = SimpleCommand { p ->
             val source = p.source()
@@ -114,10 +118,15 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
             source.sendMessage(Component.text("Migrating players to server '$targetServerName'..."))
         }
 
+        val getallServerCommand = SimpleCommand { p ->
+            getallServer()
+        }
+
         commandManager.register(serversCommandMeta, ServerCommand.createServerCommand(server))
         commandManager.register(endCommandMeta, EndCommand.createEndCommand(server))
         commandManager.register(refreshCommandMeta, refreshCommand)
         commandManager.register(migrateCommandMeta, migrateCommand)
+        commandManager.register(getallServerCommandMeta, getallServerCommand)
 
         val connectionHandler = ProxyTransferHandler(servers, logger, acceptingTransfers)
         server.eventManager.register(this, connectionHandler)
@@ -130,6 +139,22 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
         }
 
         logger.info("Minikura-Velocity has been initialized.")
+    }
+
+    fun refreshServers() {
+        fetchServers()
+        fetchReverseProxyServers()
+    }
+
+    fun getallServer() {
+        synchronized(ServerDataStore) {
+            ServerDataStore.getServers().forEach { serverData ->
+                logger.info("Server ID: ${serverData.id}, Type: ${serverData.type}, Description: ${serverData.description}")
+            }
+            ServerDataStore.getReverseProxyServers().forEach { reverseProxyServerData ->
+                logger.info("Reverse Proxy Server ID: ${reverseProxyServerData.id}, External Address: ${reverseProxyServerData.external_address}, External Port: ${reverseProxyServerData.external_port}")
+            }
+        }
     }
 
     private fun fetchReverseProxyServers() {
@@ -207,9 +232,9 @@ class Main @Inject constructor(private val logger: Logger, private val server: P
         servers.clear()
 
         for (data in serversData) {
-            val serverInfo = ServerInfo(data.name, InetSocketAddress(data.address, data.port))
+            val serverInfo = ServerInfo(data.id, InetSocketAddress("localhost", data.listen_port))
             val registeredServer = server.createRawRegisteredServer(serverInfo)
-            servers[data.name] = registeredServer
+            servers[data.id] = registeredServer
             this.server.registerServer(registeredServer.serverInfo)
         }
     }

@@ -36,6 +36,28 @@ const bootstrap = async () => {
   console.log("Default user created");
 };
 
+
+const connectedClients = new Set<any>();
+const broadcastServerChange = (action: string, serverType: string, serverId: string) => {
+  const message = {
+    type: "SERVER_CHANGE",
+    action,
+    serverType,
+    serverId,
+    timestamp: new Date().toISOString(),
+  };
+  
+  connectedClients.forEach(client => {
+    try {
+      client.send(JSON.stringify(message));
+    } catch (error) {
+      console.error("Error sending WebSocket message:", error);
+      connectedClients.delete(client);
+    }
+  });
+  console.log(`Notified Velocity proxy: ${action} ${serverType} ${serverId}`);
+};
+
 const app = new Elysia()
   .use(swagger({
     path: '/swagger',
@@ -46,6 +68,26 @@ const app = new Elysia()
       }
     }
   }))
+  .ws("/ws", {
+    open(ws) {
+      const apiKey = ws.data.query.apiKey;
+      if (!apiKey) {
+        console.log("apiKey required");
+        ws.close();
+        return;
+      }
+      
+      connectedClients.add(ws);
+      console.log("Velocity proxy connected via WebSocket");
+    },
+    close(ws) {
+      connectedClients.delete(ws);
+      console.log("Velocity proxy disconnected from WebSocket");
+    },
+    message(ws, message) {
+      console.log("Received message from Velocity proxy:", message);
+    },
+  })
   .group('/api', app => app
     .derive(async ({ headers, cookie: { session_token }, path }) => {
       // Skip token validation for login route
@@ -150,19 +192,6 @@ const app = new Elysia()
         }),
       }
     )
-    .ws("/ws", {
-      body: t.Object({
-        message: t.String(),
-      }),
-      message(ws, { message }) {
-        const { id } = ws.data.query;
-        ws.send({
-          id,
-          message,
-          time: Date.now(),
-        });
-      },
-    })
     .post("/logout", async ({ session, cookie: { session_token } }) => {
       if (!session) return { success: true };
 
@@ -175,6 +204,24 @@ const app = new Elysia()
       };
     })
     .get("/servers", async ({ session }) => {
+      // Broadcast to all connected WebSocket clients
+      const message = {
+        type: "test",
+        endpoint: "/servers",
+        timestamp: new Date().toISOString(),
+      };
+      
+      connectedClients.forEach(client => {
+        try {
+          client.send(JSON.stringify(message));
+        } catch (error) {
+          console.error("Error sending WebSocket message:", error);
+          connectedClients.delete(client);
+        }
+      });
+      
+      console.log(`/servers API called, notified ${connectedClients.size} WebSocket clients`);
+      
       return await ServerService.getAllServers(!session);
     })
     .get("/servers/:id", async ({ session, params: { id } }) => {
@@ -204,6 +251,8 @@ const app = new Elysia()
           env_variables: body.env_variables,
           memory: body.memory,
         });
+
+        broadcastServerChange("CREATE", "SERVER", server.id,);
 
         return {
           success: true,
@@ -252,6 +301,8 @@ const app = new Elysia()
 
         const newServer = await ServerService.getServerById(id, !session);
 
+        broadcastServerChange("UPDATE", "SERVER", server.id);
+
         return {
           success: true,
           data: {
@@ -279,6 +330,8 @@ const app = new Elysia()
       await prisma.server.delete({
         where: { id },
       });
+
+      broadcastServerChange("DELETE", "SERVER", server.id);
 
       return {
         success: true,
@@ -313,6 +366,8 @@ const app = new Elysia()
           env_variables: body.env_variables,
           memory: body.memory,
         });
+
+        broadcastServerChange("CREATE", "REVERSE_PROXY_SERVER", server.id);
 
         return {
           success: true,
@@ -371,6 +426,8 @@ const app = new Elysia()
           !session
         );
 
+        broadcastServerChange("UPDATE", "REVERSE_PROXY_SERVER", server.id);
+
         return {
           success: true,
           data: {
@@ -403,6 +460,8 @@ const app = new Elysia()
       await prisma.reverseProxyServer.delete({
         where: { id },
       });
+
+      broadcastServerChange("DELETE", "REVERSE_PROXY_SERVER", server.id);
 
       return {
         success: true,

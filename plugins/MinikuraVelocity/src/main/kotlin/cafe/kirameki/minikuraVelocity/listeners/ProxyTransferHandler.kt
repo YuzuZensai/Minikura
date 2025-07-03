@@ -124,9 +124,7 @@ class ProxyTransferHandler(
         }
 
         val sortedServers = ServerDataStore.getServers()
-            .filter { it.join_priority != null }
-            .sortedBy { it.join_priority }
-            .mapNotNull { servers[it.name] }
+            .mapNotNull { servers[it.id] }
 
         for (server in sortedServers) {
             if (server != currentServer) {
