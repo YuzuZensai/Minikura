@@ -1,8 +1,8 @@
-import * as k8s from '@kubernetes/client-node';
-import { ServerType } from '@minikura/db';
-import { LABEL_PREFIX } from '../config/constants';
-import { calculateJavaMemory, convertToK8sFormat } from '../utils/memory';
-import type { ServerConfig } from '../types';
+import type * as k8s from "@kubernetes/client-node";
+import { ServerType } from "@minikura/db";
+import { LABEL_PREFIX } from "../config/constants";
+import { calculateJavaMemory, convertToK8sFormat } from "../utils/memory";
+import type { ServerConfig } from "../types";
 
 export async function createServer(
   server: ServerConfig,
@@ -14,8 +14,8 @@ export async function createServer(
   const serverName = `minecraft-${server.id}`;
 
   const configMap = {
-    apiVersion: 'v1',
-    kind: 'ConfigMap',
+    apiVersion: "v1",
+    kind: "ConfigMap",
     metadata: {
       name: `${serverName}-config`,
       namespace: namespace,
@@ -23,14 +23,14 @@ export async function createServer(
         app: serverName,
         [`${LABEL_PREFIX}/server-type`]: server.type.toLowerCase(),
         [`${LABEL_PREFIX}/server-id`]: server.id,
-      }
+      },
     },
     data: {
-      'server-type': server.type,
-      'minikura-api-key': server.apiKey,
-    }
+      "server-type": server.type,
+      "minikura-api-key": server.apiKey,
+    },
   };
-  
+
   try {
     await coreApi.createNamespacedConfigMap(namespace, configMap);
     console.log(`Created ConfigMap for server ${server.id}`);
@@ -45,8 +45,8 @@ export async function createServer(
   }
 
   const service = {
-    apiVersion: 'v1',
-    kind: 'Service',
+    apiVersion: "v1",
+    kind: "Service",
     metadata: {
       name: serverName,
       namespace: namespace,
@@ -54,7 +54,7 @@ export async function createServer(
         app: serverName,
         [`${LABEL_PREFIX}/server-type`]: server.type.toLowerCase(),
         [`${LABEL_PREFIX}/server-id`]: server.id,
-      }
+      },
     },
     spec: {
       selector: {
@@ -64,14 +64,14 @@ export async function createServer(
         {
           port: server.listen_port,
           targetPort: 25565,
-          protocol: 'TCP',
-          name: 'minecraft',
-        }
+          protocol: "TCP",
+          name: "minecraft",
+        },
       ],
-      type: 'ClusterIP', // Always ClusterIP for regular servers
-    }
+      type: "ClusterIP", // Always ClusterIP for regular servers
+    },
   };
-  
+
   try {
     await coreApi.createNamespacedService(namespace, service);
     console.log(`Created Service for server ${server.id}`);
@@ -99,78 +99,78 @@ async function createDeployment(
   namespace: string
 ): Promise<void> {
   const deployment = {
-    apiVersion: 'apps/v1',
-    kind: 'Deployment',
+    apiVersion: "apps/v1",
+    kind: "Deployment",
     metadata: {
       name: serverName,
       namespace: namespace,
       labels: {
         app: serverName,
-        [`${LABEL_PREFIX}/server-type`]: 'stateless',
+        [`${LABEL_PREFIX}/server-type`]: "stateless",
         [`${LABEL_PREFIX}/server-id`]: server.id,
-      }
+      },
     },
     spec: {
       replicas: 1,
       selector: {
         matchLabels: {
           app: serverName,
-        }
+        },
       },
       template: {
         metadata: {
           labels: {
             app: serverName,
-            [`${LABEL_PREFIX}/server-type`]: 'stateless',
+            [`${LABEL_PREFIX}/server-type`]: "stateless",
             [`${LABEL_PREFIX}/server-id`]: server.id,
-          }
+          },
         },
         spec: {
           containers: [
             {
-              name: 'minecraft',
-              image: 'itzg/minecraft-server',
+              name: "minecraft",
+              image: "itzg/minecraft-server",
               ports: [
                 {
                   containerPort: 25565,
-                  name: 'minecraft',
-                }
+                  name: "minecraft",
+                },
               ],
               env: [
                 {
-                  name: 'EULA',
-                  value: 'TRUE',
+                  name: "EULA",
+                  value: "TRUE",
                 },
                 {
-                  name: 'TYPE',
-                  value: 'VANILLA',
+                  name: "TYPE",
+                  value: "VANILLA",
                 },
                 {
-                  name: 'MEMORY',
-                  value: calculateJavaMemory(server.memory || '1G', 0.8),
+                  name: "MEMORY",
+                  value: calculateJavaMemory(server.memory || "1G", 0.8),
                 },
                 {
-                  name: 'OPS',
-                  value: '',
+                  name: "OPS",
+                  value: "",
                 },
                 {
-                  name: 'OVERRIDE_SERVER_PROPERTIES',
-                  value: 'true',
+                  name: "OVERRIDE_SERVER_PROPERTIES",
+                  value: "true",
                 },
                 {
-                  name: 'ENABLE_RCON',
-                  value: 'false',
+                  name: "ENABLE_RCON",
+                  value: "false",
                 },
-                ...(server.env_variables || []).map(ev => ({
+                ...(server.env_variables || []).map((ev) => ({
                   name: ev.key,
                   value: ev.value,
                 })),
               ],
               volumeMounts: [
                 {
-                  name: 'config',
-                  mountPath: '/config',
-                }
+                  name: "config",
+                  mountPath: "/config",
+                },
               ],
               readinessProbe: {
                 tcpSocket: {
@@ -187,23 +187,23 @@ async function createDeployment(
                 limits: {
                   memory: convertToK8sFormat(server.memory || "1G"),
                   cpu: "500m",
-                }
-              }
-            }
+                },
+              },
+            },
           ],
           volumes: [
             {
-              name: 'config',
+              name: "config",
               configMap: {
                 name: `${serverName}-config`,
-              }
-            }
-          ]
-        }
-      }
-    }
+              },
+            },
+          ],
+        },
+      },
+    },
   };
-  
+
   try {
     await appsApi.createNamespacedDeployment(namespace, deployment);
     console.log(`Created Deployment for server ${server.id}`);
@@ -225,16 +225,16 @@ async function createStatefulSet(
   namespace: string
 ): Promise<void> {
   const statefulSet = {
-    apiVersion: 'apps/v1',
-    kind: 'StatefulSet',
+    apiVersion: "apps/v1",
+    kind: "StatefulSet",
     metadata: {
       name: serverName,
       namespace: namespace,
       labels: {
         app: serverName,
-        [`${LABEL_PREFIX}/server-type`]: 'stateful',
+        [`${LABEL_PREFIX}/server-type`]: "stateful",
         [`${LABEL_PREFIX}/server-id`]: server.id,
-      }
+      },
     },
     spec: {
       serviceName: serverName,
@@ -242,66 +242,66 @@ async function createStatefulSet(
       selector: {
         matchLabels: {
           app: serverName,
-        }
+        },
       },
       template: {
         metadata: {
           labels: {
             app: serverName,
-            [`${LABEL_PREFIX}/server-type`]: 'stateful',
+            [`${LABEL_PREFIX}/server-type`]: "stateful",
             [`${LABEL_PREFIX}/server-id`]: server.id,
-          }
+          },
         },
         spec: {
           containers: [
             {
-              name: 'minecraft',
-              image: 'itzg/minecraft-server',
+              name: "minecraft",
+              image: "itzg/minecraft-server",
               ports: [
                 {
                   containerPort: 25565,
-                  name: 'minecraft',
-                }
+                  name: "minecraft",
+                },
               ],
               env: [
                 {
-                  name: 'EULA',
-                  value: 'TRUE',
+                  name: "EULA",
+                  value: "TRUE",
                 },
                 {
-                  name: 'TYPE',
-                  value: 'VANILLA',
+                  name: "TYPE",
+                  value: "VANILLA",
                 },
                 {
-                  name: 'MEMORY',
-                  value: calculateJavaMemory(server.memory || '1G', 0.8),
+                  name: "MEMORY",
+                  value: calculateJavaMemory(server.memory || "1G", 0.8),
                 },
                 {
-                  name: 'OPS',
-                  value: '',
+                  name: "OPS",
+                  value: "",
                 },
                 {
-                  name: 'OVERRIDE_SERVER_PROPERTIES',
-                  value: 'true',
+                  name: "OVERRIDE_SERVER_PROPERTIES",
+                  value: "true",
                 },
                 {
-                  name: 'ENABLE_RCON',
-                  value: 'false',
+                  name: "ENABLE_RCON",
+                  value: "false",
                 },
-                ...(server.env_variables || []).map(ev => ({
+                ...(server.env_variables || []).map((ev) => ({
                   name: ev.key,
                   value: ev.value,
                 })),
               ],
               volumeMounts: [
                 {
-                  name: 'data',
-                  mountPath: '/data',
+                  name: "data",
+                  mountPath: "/data",
                 },
                 {
-                  name: 'config',
-                  mountPath: '/config',
-                }
+                  name: "config",
+                  mountPath: "/config",
+                },
               ],
               readinessProbe: {
                 tcpSocket: {
@@ -318,38 +318,38 @@ async function createStatefulSet(
                 limits: {
                   memory: convertToK8sFormat(server.memory),
                   cpu: "500m",
-                }
-              }
-            }
+                },
+              },
+            },
           ],
           volumes: [
             {
-              name: 'config',
+              name: "config",
               configMap: {
                 name: `${serverName}-config`,
-              }
-            }
-          ]
-        }
+              },
+            },
+          ],
+        },
       },
       volumeClaimTemplates: [
         {
           metadata: {
-            name: 'data',
+            name: "data",
           },
           spec: {
-            accessModes: ['ReadWriteOnce'],
+            accessModes: ["ReadWriteOnce"],
             resources: {
               requests: {
-                storage: '1Gi',
-              }
-            }
-          }
-        }
-      ]
-    }
+                storage: "1Gi",
+              },
+            },
+          },
+        },
+      ],
+    },
   };
-  
+
   try {
     await appsApi.createNamespacedStatefulSet(namespace, statefulSet);
     console.log(`Created StatefulSet for server ${server.id}`);
@@ -372,7 +372,7 @@ export async function deleteServer(
   namespace: string
 ): Promise<void> {
   const serverName = `minecraft-${serverId2}`;
-  
+
   try {
     await appsApi.deleteNamespacedDeployment(serverName, namespace);
     console.log(`Deleted Deployment for server ${serverName}`);
@@ -381,7 +381,7 @@ export async function deleteServer(
       console.error(`Error deleting Deployment for server ${serverName}:`, err);
     }
   }
-  
+
   try {
     await appsApi.deleteNamespacedStatefulSet(serverName, namespace);
     console.log(`Deleted StatefulSet for server ${serverName}`);
@@ -390,7 +390,7 @@ export async function deleteServer(
       console.error(`Error deleting StatefulSet for server ${serverName}:`, err);
     }
   }
-  
+
   try {
     await coreApi.deleteNamespacedService(serverName, namespace);
     console.log(`Deleted Service for server ${serverName}`);
@@ -399,7 +399,7 @@ export async function deleteServer(
       console.error(`Error deleting Service for server ${serverName}:`, err);
     }
   }
-  
+
   try {
     await coreApi.deleteNamespacedConfigMap(`${serverName}-config`, namespace);
     console.log(`Deleted ConfigMap for server ${serverName}`);
@@ -408,4 +408,4 @@ export async function deleteServer(
       console.error(`Error deleting ConfigMap for server ${serverName}:`, err);
     }
   }
-} 
+}

@@ -1,5 +1,5 @@
-import * as k8s from '@kubernetes/client-node';
-import { SKIP_TLS_VERIFY, NAMESPACE } from '../config/constants';
+import * as k8s from "@kubernetes/client-node";
+import { SKIP_TLS_VERIFY, NAMESPACE } from "../config/constants";
 
 export class KubernetesClient {
   private static instance: KubernetesClient;
@@ -12,10 +12,10 @@ export class KubernetesClient {
 
   private constructor() {
     if (SKIP_TLS_VERIFY) {
-      console.log('Disabling TLS certificate validation');
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      console.log("Disabling TLS certificate validation");
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
     }
-    
+
     this.kc = new k8s.KubeConfig();
     this.setupConfig();
     this.initializeClients();
@@ -31,23 +31,23 @@ export class KubernetesClient {
   private setupConfig(): void {
     try {
       this.kc.loadFromDefault();
-      console.log('Loaded Kubernetes config from default location');
+      console.log("Loaded Kubernetes config from default location");
     } catch (err) {
-      console.warn('Failed to load Kubernetes config from default location:', err);
+      console.warn("Failed to load Kubernetes config from default location:", err);
     }
 
     // Running in a cluster, try to load in-cluster config
     if (!this.kc.getCurrentContext()) {
       try {
         this.kc.loadFromCluster();
-        console.log('Loaded Kubernetes config from cluster');
+        console.log("Loaded Kubernetes config from cluster");
       } catch (err) {
-        console.warn('Failed to load Kubernetes config from cluster:', err);
+        console.warn("Failed to load Kubernetes config from cluster:", err);
       }
     }
 
     if (!this.kc.getCurrentContext()) {
-      throw new Error('Failed to setup Kubernetes client - no valid configuration found');
+      throw new Error("Failed to setup Kubernetes client - no valid configuration found");
     }
 
     const currentCluster = this.kc.getCurrentCluster();
@@ -90,12 +90,12 @@ export class KubernetesClient {
 
   async handleApiError(error: any, context: string): Promise<never> {
     console.error(`Kubernetes API error (${context}):`, error?.message || error);
-    
+
     if (error?.response) {
       console.error(`Response status: ${error.response.statusCode}`);
       console.error(`Response body: ${JSON.stringify(error.response.body)}`);
     }
-    
+
     throw error;
   }
-} 
+}

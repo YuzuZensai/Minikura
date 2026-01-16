@@ -1,8 +1,8 @@
-import * as k8s from '@kubernetes/client-node';
-import { ReverseProxyServerType } from '@minikura/db';
-import { LABEL_PREFIX } from '../config/constants';
-import { calculateJavaMemory, convertToK8sFormat } from '../utils/memory';
-import type { ReverseProxyConfig } from '../types';
+import type * as k8s from "@kubernetes/client-node";
+import type { ReverseProxyServerType } from "@minikura/db";
+import { LABEL_PREFIX } from "../config/constants";
+import { calculateJavaMemory, convertToK8sFormat } from "../utils/memory";
+import type { ReverseProxyConfig } from "../types";
 
 export async function createReverseProxyServer(
   server: ReverseProxyConfig,
@@ -12,13 +12,13 @@ export async function createReverseProxyServer(
   namespace: string
 ): Promise<void> {
   console.log(`Creating reverse proxy server ${server.id} in namespace '${namespace}'`);
-  
+
   const serverType = server.type.toLowerCase();
   const serverName = `${serverType}-${server.id}`;
-  
+
   const configMap = {
-    apiVersion: 'v1',
-    kind: 'ConfigMap',
+    apiVersion: "v1",
+    kind: "ConfigMap",
     metadata: {
       name: `${serverName}-config`,
       namespace: namespace,
@@ -26,13 +26,13 @@ export async function createReverseProxyServer(
         app: serverName,
         [`${LABEL_PREFIX}/server-type`]: serverType,
         [`${LABEL_PREFIX}/proxy-id`]: server.id,
-      }
+      },
     },
     data: {
-      'minikura-api-key': server.apiKey,
-    }
+      "minikura-api-key": server.apiKey,
+    },
   };
-  
+
   try {
     await coreApi.createNamespacedConfigMap(namespace, configMap);
     console.log(`Created ConfigMap for reverse proxy server ${server.id}`);
@@ -45,11 +45,11 @@ export async function createReverseProxyServer(
       throw error;
     }
   }
-  
+
   // Create Service for the reverse proxy - Always LoadBalancer for now
   const service = {
-    apiVersion: 'v1',
-    kind: 'Service',
+    apiVersion: "v1",
+    kind: "Service",
     metadata: {
       name: serverName,
       namespace: namespace,
@@ -57,7 +57,7 @@ export async function createReverseProxyServer(
         app: serverName,
         [`${LABEL_PREFIX}/server-type`]: serverType,
         [`${LABEL_PREFIX}/proxy-id`]: server.id,
-      }
+      },
     },
     spec: {
       selector: {
@@ -67,14 +67,14 @@ export async function createReverseProxyServer(
         {
           port: server.external_port,
           targetPort: server.listen_port,
-          protocol: 'TCP',
-          name: 'minecraft',
-        }
+          protocol: "TCP",
+          name: "minecraft",
+        },
       ],
-      type: 'LoadBalancer',
-    }
+      type: "LoadBalancer",
+    },
   };
-  
+
   try {
     await coreApi.createNamespacedService(namespace, service);
     console.log(`Created Service for reverse proxy server ${server.id}`);
@@ -87,11 +87,11 @@ export async function createReverseProxyServer(
       throw error;
     }
   }
-  
+
   // Create Deployment
   const deployment = {
-    apiVersion: 'apps/v1',
-    kind: 'Deployment',
+    apiVersion: "apps/v1",
+    kind: "Deployment",
     metadata: {
       name: serverName,
       namespace: namespace,
@@ -99,14 +99,14 @@ export async function createReverseProxyServer(
         app: serverName,
         [`${LABEL_PREFIX}/server-type`]: serverType,
         [`${LABEL_PREFIX}/proxy-id`]: server.id,
-      }
+      },
     },
     spec: {
       replicas: 1,
       selector: {
         matchLabels: {
           app: serverName,
-        }
+        },
       },
       template: {
         metadata: {
@@ -114,61 +114,61 @@ export async function createReverseProxyServer(
             app: serverName,
             [`${LABEL_PREFIX}/server-type`]: serverType,
             [`${LABEL_PREFIX}/proxy-id`]: server.id,
-          }
+          },
         },
         spec: {
           containers: [
             {
               name: serverType,
-              image: 'itzg/mc-proxy:latest',
+              image: "itzg/mc-proxy:latest",
               ports: [
                 {
                   containerPort: server.listen_port,
-                  name: 'minecraft',
-                }
+                  name: "minecraft",
+                },
               ],
               env: [
                 {
-                  name: 'TYPE',
+                  name: "TYPE",
                   value: server.type,
                 },
                 {
-                  name: 'NETWORKADDRESS_CACHE_TTL',
-                  value: '30',
+                  name: "NETWORKADDRESS_CACHE_TTL",
+                  value: "30",
                 },
                 {
-                  name: 'MEMORY',
-                  value: calculateJavaMemory(server.memory || '512M', 0.8),
+                  name: "MEMORY",
+                  value: calculateJavaMemory(server.memory || "512M", 0.8),
                 },
-                ...(server.env_variables || []).map(ev => ({
+                ...(server.env_variables || []).map((ev) => ({
                   name: ev.key,
                   value: ev.value,
                 })),
               ],
               readinessProbe: {
                 tcpSocket: {
-                  port: server.listen_port, 
+                  port: server.listen_port,
                 },
                 initialDelaySeconds: 30,
                 periodSeconds: 10,
               },
               resources: {
                 requests: {
-                  memory: convertToK8sFormat(server.memory || "512M"), 
+                  memory: convertToK8sFormat(server.memory || "512M"),
                   cpu: "250m",
                 },
                 limits: {
-                  memory: convertToK8sFormat(server.memory || "512M"), 
+                  memory: convertToK8sFormat(server.memory || "512M"),
                   cpu: "500m",
-                }
-              }
-            }
-          ]
-        }
-      }
-    }
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
   };
-  
+
   try {
     await appsApi.createNamespacedDeployment(namespace, deployment);
     console.log(`Created Deployment for reverse proxy server ${server.id}`);
@@ -192,7 +192,7 @@ export async function deleteReverseProxyServer(
 ): Promise<void> {
   const serverType = proxyType.toLowerCase();
   const name = `${serverType}-${proxyId}`;
-  
+
   try {
     await appsApi.deleteNamespacedDeployment(name, namespace);
     console.log(`Deleted Deployment for reverse proxy server ${proxyId}`);
@@ -201,7 +201,7 @@ export async function deleteReverseProxyServer(
       console.error(`Error deleting Deployment for reverse proxy server ${proxyId}:`, error);
     }
   }
-  
+
   try {
     await coreApi.deleteNamespacedService(name, namespace);
     console.log(`Deleted Service for reverse proxy server ${proxyId}`);
@@ -210,7 +210,7 @@ export async function deleteReverseProxyServer(
       console.error(`Error deleting Service for reverse proxy server ${proxyId}:`, error);
     }
   }
-  
+
   try {
     await coreApi.deleteNamespacedConfigMap(`${name}-config`, namespace);
     console.log(`Deleted ConfigMap for reverse proxy server ${proxyId}`);
@@ -219,4 +219,4 @@ export async function deleteReverseProxyServer(
       console.error(`Error deleting ConfigMap for reverse proxy server ${proxyId}:`, error);
     }
   }
-} 
+}

@@ -1,9 +1,9 @@
-import { PrismaClient } from '@minikura/db';
-import type { Server, ReverseProxyServer, CustomEnvironmentVariable } from '@minikura/db';
-import { KubernetesClient } from './k8s-client';
-import { API_GROUP, API_VERSION, LABEL_PREFIX } from '../config/constants';
-import { MINECRAFT_SERVER_CRD } from '../crds/server';
-import { REVERSE_PROXY_SERVER_CRD } from '../crds/reverseProxy';
+import type { PrismaClient } from "@minikura/db";
+import type { Server, ReverseProxyServer, CustomEnvironmentVariable } from "@minikura/db";
+import type { KubernetesClient } from "./k8s-client";
+import { API_GROUP, API_VERSION, LABEL_PREFIX } from "../config/constants";
+import { MINECRAFT_SERVER_CRD } from "../crds/server";
+import { REVERSE_PROXY_SERVER_CRD } from "../crds/reverseProxy";
 
 /**
  * Sets up the CRD registration and starts a reflector to sync database state to CRDs
@@ -24,7 +24,7 @@ async function registerCRDs(k8sClient: KubernetesClient): Promise<void> {
   try {
     const apiExtensionsClient = k8sClient.getApiExtensionsApi();
 
-    console.log('Registering CRDs...');
+    console.log("Registering CRDs...");
 
     try {
       await apiExtensionsClient.createCustomResourceDefinition(MINECRAFT_SERVER_CRD);
@@ -32,9 +32,9 @@ async function registerCRDs(k8sClient: KubernetesClient): Promise<void> {
     } catch (error: any) {
       if (error.response?.statusCode === 409) {
         // TODO: Handle conflict
-        console.log('MinecraftServer CRD already exists');
+        console.log("MinecraftServer CRD already exists");
       } else {
-        console.error('Error creating MinecraftServer CRD:', error);
+        console.error("Error creating MinecraftServer CRD:", error);
       }
     }
 
@@ -43,14 +43,14 @@ async function registerCRDs(k8sClient: KubernetesClient): Promise<void> {
       console.log(`ReverseProxyServer CRD created successfully (${API_GROUP}/${API_VERSION})`);
     } catch (error: any) {
       if (error.response?.statusCode === 409) {
-       // TODO: Handle conflict
-        console.log('ReverseProxyServer CRD already exists');
+        // TODO: Handle conflict
+        console.log("ReverseProxyServer CRD already exists");
       } else {
-        console.error('Error creating ReverseProxyServer CRD:', error);
+        console.error("Error creating ReverseProxyServer CRD:", error);
       }
     }
   } catch (error) {
-    console.error('Error registering CRDs:', error);
+    console.error("Error registering CRDs:", error);
     throw error;
   }
 }
@@ -69,17 +69,27 @@ async function startCRDReflector(
   const reflectedMinecraftServers = new Map<string, string>(); // DB ID -> CR name
   const reflectedReverseProxyServers = new Map<string, string>(); // DB ID -> CR name
 
-  console.log('Starting CRD reflector...');
-  
+  console.log("Starting CRD reflector...");
+
   // Initial sync to create CRs that reflect the DB state
-  await syncDBtoCRDs(prisma, customObjectsApi, namespace, 
-    reflectedMinecraftServers, reflectedReverseProxyServers);
-  
+  await syncDBtoCRDs(
+    prisma,
+    customObjectsApi,
+    namespace,
+    reflectedMinecraftServers,
+    reflectedReverseProxyServers
+  );
+
   // Polling interval to check for changes in the DB
   // TODO: Make this listener instead
   setInterval(async () => {
-    await syncDBtoCRDs(prisma, customObjectsApi, namespace, 
-      reflectedMinecraftServers, reflectedReverseProxyServers);
+    await syncDBtoCRDs(
+      prisma,
+      customObjectsApi,
+      namespace,
+      reflectedMinecraftServers,
+      reflectedReverseProxyServers
+    );
   }, 30 * 1000);
 }
 
@@ -96,7 +106,12 @@ async function syncDBtoCRDs(
   try {
     console.log(`[${new Date().toISOString()}] Starting CRD sync operation...`);
     await syncMinecraftServers(prisma, customObjectsApi, namespace, reflectedMinecraftServers);
-    await syncReverseProxyServers(prisma, customObjectsApi, namespace, reflectedReverseProxyServers);
+    await syncReverseProxyServers(
+      prisma,
+      customObjectsApi,
+      namespace,
+      reflectedReverseProxyServers
+    );
     console.log(`[${new Date().toISOString()}] CRD sync operation completed`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error syncing database to CRDs:`, error);
@@ -114,18 +129,18 @@ async function syncMinecraftServers(
 ): Promise<void> {
   try {
     const servers = await prisma.server.findMany();
-    
+
     let existingCRs: any[] = [];
     try {
       const response = await customObjectsApi.listNamespacedCustomObject(
         API_GROUP,
         API_VERSION,
         namespace,
-        'minecraftservers'
+        "minecraftservers"
       );
       existingCRs = (response.body as any).items || [];
     } catch (error) {
-      console.error('Error listing MinecraftServer CRs:', error);
+      console.error("Error listing MinecraftServer CRs:", error);
       // TODO: Potentially better error handling here
       // For now, continue anyway - it might just be that none exist yet
     }
@@ -134,7 +149,7 @@ async function syncMinecraftServers(
     const existingCRMap = new Map<string, string>();
     // Map of CR names to their resourceVersions for updates
     const crResourceVersions = new Map<string, string>();
-    
+
     for (const cr of existingCRs) {
       const internalId = cr.status?.internalId;
       if (internalId) {
@@ -148,48 +163,48 @@ async function syncMinecraftServers(
 
     // Refresh tracking map
     reflectedMinecraftServers.clear();
-    
+
     // Create or update CRs for each server
     for (const server of servers) {
       const crName = existingCRMap.get(server.id) || `${server.id.toLowerCase()}`;
-      
+
       // Build the CR object
       const serverCR: {
-        apiVersion: string,
-        kind: string,
+        apiVersion: string;
+        kind: string;
         metadata: {
-          name: string,
-          namespace: string,
-          annotations: Record<string, string>,
-          resourceVersion?: string
-        },
-        spec: any,
-        status: any
+          name: string;
+          namespace: string;
+          annotations: Record<string, string>;
+          resourceVersion?: string;
+        };
+        spec: any;
+        status: any;
       } = {
         apiVersion: `${API_GROUP}/${API_VERSION}`,
-        kind: 'MinecraftServer',
+        kind: "MinecraftServer",
         metadata: {
           name: crName,
           namespace: namespace,
           annotations: {
-            [`${LABEL_PREFIX}/database-managed`]: 'true',
-            [`${LABEL_PREFIX}/last-synced`]: new Date().toISOString()
-          }
+            [`${LABEL_PREFIX}/database-managed`]: "true",
+            [`${LABEL_PREFIX}/last-synced`]: new Date().toISOString(),
+          },
         },
         spec: {
           id: server.id,
           description: server.description,
           listen_port: server.listen_port,
           type: server.type,
-          memory: server.memory
+          memory: server.memory,
         },
         status: {
-          phase: 'Running',
-          message: 'Managed by database',
+          phase: "Running",
+          message: "Managed by database",
           internalId: server.id,
-          apiKey: '[REDACTED]', // Don't expose actual API key
-          lastSyncedAt: new Date().toISOString()
-        }
+          apiKey: "[REDACTED]", // Don't expose actual API key
+          lastSyncedAt: new Date().toISOString(),
+        },
       };
 
       try {
@@ -198,29 +213,29 @@ async function syncMinecraftServers(
 
           // Get the current resource first
           const crName = existingCRMap.get(server.id)!;
-          
+
           try {
             // Get the existing resource to get the current resourceVersion
             const existingResource = await customObjectsApi.getNamespacedCustomObject(
               API_GROUP,
               API_VERSION,
               namespace,
-              'minecraftservers',
+              "minecraftservers",
               crName
             );
-            
+
             // Extract the resourceVersion from the existing resource
             if (existingResource?.body?.metadata?.resourceVersion) {
               // Add the resourceVersion to our custom resource
               serverCR.metadata.resourceVersion = existingResource.body.metadata.resourceVersion;
             }
-            
+
             // Now update with the correct resourceVersion
             await customObjectsApi.replaceNamespacedCustomObject(
               API_GROUP,
               API_VERSION,
               namespace,
-              'minecraftservers',
+              "minecraftservers",
               crName,
               serverCR
             );
@@ -234,28 +249,28 @@ async function syncMinecraftServers(
             API_GROUP,
             API_VERSION,
             namespace,
-            'minecraftservers',
+            "minecraftservers",
             serverCR
           );
           console.log(`Created MinecraftServer CR ${crName} for server ${server.id}`);
         }
-        
+
         // Remember this mapping
         reflectedMinecraftServers.set(server.id, crName);
       } catch (error) {
         console.error(`Error creating/updating MinecraftServer CR for ${server.id}:`, error);
       }
     }
-    
+
     // Delete CRs for servers that no longer exist
     for (const [dbId, crName] of existingCRMap.entries()) {
-      if (!servers.some(s => s.id === dbId)) {
+      if (!servers.some((s) => s.id === dbId)) {
         try {
           await customObjectsApi.deleteNamespacedCustomObject(
             API_GROUP,
             API_VERSION,
             namespace,
-            'minecraftservers',
+            "minecraftservers",
             crName
           );
           console.log(`Deleted MinecraftServer CR ${crName} for removed server ID ${dbId}`);
@@ -265,7 +280,7 @@ async function syncMinecraftServers(
       }
     }
   } catch (error) {
-    console.error('Error syncing Minecraft servers to CRDs:', error);
+    console.error("Error syncing Minecraft servers to CRDs:", error);
   }
 }
 
@@ -281,21 +296,21 @@ async function syncReverseProxyServers(
   try {
     const proxies = await prisma.reverseProxyServer.findMany({
       include: {
-        env_variables: true
-      }
+        env_variables: true,
+      },
     });
-    
+
     let existingCRs: any[] = [];
     try {
       const response = await customObjectsApi.listNamespacedCustomObject(
         API_GROUP,
         API_VERSION,
         namespace,
-        'reverseproxyservers'
+        "reverseproxyservers"
       );
       existingCRs = (response.body as any).items || [];
     } catch (error) {
-      console.error('Error listing ReverseProxyServer CRs:', error);
+      console.error("Error listing ReverseProxyServer CRs:", error);
       // TODO: Potentially better error handling here
       // For now, continue anyway - it might just be that none exist yet
     }
@@ -304,7 +319,7 @@ async function syncReverseProxyServers(
     const existingCRMap = new Map<string, string>();
     // Map of CR names to their resourceVersions for updates
     const crResourceVersions = new Map<string, string>();
-    
+
     for (const cr of existingCRs) {
       const internalId = cr.status?.internalId;
       if (internalId) {
@@ -318,33 +333,33 @@ async function syncReverseProxyServers(
 
     // Refresh tracking map
     reflectedReverseProxyServers.clear();
-    
+
     // Create or update CRs for each proxy
     for (const proxy of proxies) {
       const crName = existingCRMap.get(proxy.id) || `${proxy.id.toLowerCase()}`;
-      
+
       // Build the CR object
       const proxyCR: {
-        apiVersion: string,
-        kind: string,
+        apiVersion: string;
+        kind: string;
         metadata: {
-          name: string,
-          namespace: string,
-          annotations: Record<string, string>,
-          resourceVersion?: string
-        },
-        spec: any,
-        status: any
+          name: string;
+          namespace: string;
+          annotations: Record<string, string>;
+          resourceVersion?: string;
+        };
+        spec: any;
+        status: any;
       } = {
         apiVersion: `${API_GROUP}/${API_VERSION}`,
-        kind: 'ReverseProxyServer',
+        kind: "ReverseProxyServer",
         metadata: {
           name: crName,
           namespace: namespace,
           annotations: {
-            [`${LABEL_PREFIX}/database-managed`]: 'true',
-            [`${LABEL_PREFIX}/last-synced`]: new Date().toISOString()
-          }
+            [`${LABEL_PREFIX}/database-managed`]: "true",
+            [`${LABEL_PREFIX}/last-synced`]: new Date().toISOString(),
+          },
         },
         spec: {
           id: proxy.id,
@@ -354,18 +369,18 @@ async function syncReverseProxyServers(
           listen_port: proxy.listen_port,
           type: proxy.type,
           memory: proxy.memory,
-          environmentVariables: proxy.env_variables?.map(ev => ({
+          environmentVariables: proxy.env_variables?.map((ev) => ({
             key: ev.key,
-            value: ev.value
-          }))
+            value: ev.value,
+          })),
         },
         status: {
-          phase: 'Running',
-          message: 'Managed by database',
+          phase: "Running",
+          message: "Managed by database",
           internalId: proxy.id,
-          apiKey: '[REDACTED]', // Don't expose actual API key
-          lastSyncedAt: new Date().toISOString()
-        }
+          apiKey: "[REDACTED]", // Don't expose actual API key
+          lastSyncedAt: new Date().toISOString(),
+        },
       };
 
       try {
@@ -374,29 +389,29 @@ async function syncReverseProxyServers(
 
           // Get the current resource first
           const crName = existingCRMap.get(proxy.id)!;
-          
+
           try {
             // Get the existing resource to get the current resourceVersion
             const existingResource = await customObjectsApi.getNamespacedCustomObject(
               API_GROUP,
               API_VERSION,
               namespace,
-              'reverseproxyservers',
+              "reverseproxyservers",
               crName
             );
-            
+
             // Extract the resourceVersion from the existing resource
             if (existingResource?.body?.metadata?.resourceVersion) {
               // Add the resourceVersion to our custom resource
               proxyCR.metadata.resourceVersion = existingResource.body.metadata.resourceVersion;
             }
-            
+
             // Now update with the correct resourceVersion
             await customObjectsApi.replaceNamespacedCustomObject(
               API_GROUP,
               API_VERSION,
               namespace,
-              'reverseproxyservers',
+              "reverseproxyservers",
               crName,
               proxyCR
             );
@@ -410,28 +425,28 @@ async function syncReverseProxyServers(
             API_GROUP,
             API_VERSION,
             namespace,
-            'reverseproxyservers',
+            "reverseproxyservers",
             proxyCR
           );
           console.log(`Created ReverseProxyServer CR ${crName} for proxy ${proxy.id}`);
         }
-        
+
         // Remember this mapping
         reflectedReverseProxyServers.set(proxy.id, crName);
       } catch (error) {
         console.error(`Error creating/updating ReverseProxyServer CR for ${proxy.id}:`, error);
       }
     }
-    
+
     // Delete CRs for proxies that no longer exist
     for (const [dbId, crName] of existingCRMap.entries()) {
-      if (!proxies.some(p => p.id === dbId)) {
+      if (!proxies.some((p) => p.id === dbId)) {
         try {
           await customObjectsApi.deleteNamespacedCustomObject(
             API_GROUP,
             API_VERSION,
             namespace,
-            'reverseproxyservers',
+            "reverseproxyservers",
             crName
           );
           console.log(`Deleted ReverseProxyServer CR ${crName} for removed proxy ID ${dbId}`);
@@ -441,6 +456,6 @@ async function syncReverseProxyServers(
       }
     }
   } catch (error) {
-    console.error('Error syncing Reverse Proxy servers to CRDs:', error);
+    console.error("Error syncing Reverse Proxy servers to CRDs:", error);
   }
-} 
+}

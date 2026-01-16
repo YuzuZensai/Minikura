@@ -11,10 +11,10 @@
 export function calculateJavaMemory(memoryString: string, factor: number): string {
   const match = memoryString.match(/^(\d+)([MG])$/i);
   if (!match) return "512M"; // Default if format is not recognized
-  
+
   const [, valueStr, unit] = match;
   const value = parseInt(valueStr, 10);
-  
+
   const calculatedValue = Math.round(value * factor);
   return `${calculatedValue}${unit.toUpperCase()}`;
 }
@@ -27,12 +27,12 @@ export function calculateJavaMemory(memoryString: string, factor: number): strin
 export function convertToK8sFormat(memoryString: string): string {
   const match = memoryString.match(/^(\d+)([MG])$/i);
   if (!match) return "1Gi"; // Default if format is not recognized
-  
+
   const [, valueStr, unit] = match;
-  
-  if (unit.toUpperCase() === 'G') {
+
+  if (unit.toUpperCase() === "G") {
     return `${valueStr}Gi`;
   } else {
     return `${valueStr}Mi`;
   }
-} 
+}

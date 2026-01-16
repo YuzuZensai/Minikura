@@ -1,8 +1,8 @@
-import { API_GROUP, API_VERSION, RESOURCE_TYPES } from '../config/constants';
+import { API_GROUP, API_VERSION, RESOURCE_TYPES } from "../config/constants";
 
 export const REVERSE_PROXY_SERVER_CRD = {
-  apiVersion: 'apiextensions.k8s.io/v1',
-  kind: 'CustomResourceDefinition',
+  apiVersion: "apiextensions.k8s.io/v1",
+  kind: "CustomResourceDefinition",
   metadata: {
     name: `${RESOURCE_TYPES.REVERSE_PROXY_SERVER.plural}.${API_GROUP}`,
   },
@@ -15,67 +15,67 @@ export const REVERSE_PROXY_SERVER_CRD = {
         storage: true,
         schema: {
           openAPIV3Schema: {
-            type: 'object',
+            type: "object",
             properties: {
               spec: {
-                type: 'object',
-                required: ['id', 'external_address', 'external_port'],
+                type: "object",
+                required: ["id", "external_address", "external_port"],
                 properties: {
                   id: {
-                    type: 'string',
-                    pattern: '^[a-zA-Z0-9-_]+$',
-                    description: 'ID of the reverse proxy server',
+                    type: "string",
+                    pattern: "^[a-zA-Z0-9-_]+$",
+                    description: "ID of the reverse proxy server",
                   },
                   description: {
-                    type: 'string',
+                    type: "string",
                     nullable: true,
-                    description: 'Optional description of the server',
+                    description: "Optional description of the server",
                   },
                   external_address: {
-                    type: 'string',
-                    description: 'External address of the proxy server',
+                    type: "string",
+                    description: "External address of the proxy server",
                   },
                   external_port: {
-                    type: 'integer',
+                    type: "integer",
                     minimum: 1,
                     maximum: 65535,
-                    description: 'External port of the proxy server',
+                    description: "External port of the proxy server",
                   },
                   listen_port: {
-                    type: 'integer',
+                    type: "integer",
                     minimum: 1,
                     maximum: 65535,
                     default: 25565,
                     nullable: true,
-                    description: 'Port the proxy server listens on internally',
+                    description: "Port the proxy server listens on internally",
                   },
                   type: {
-                    type: 'string',
-                    enum: ['VELOCITY', 'BUNGEECORD'],
-                    default: 'VELOCITY',
+                    type: "string",
+                    enum: ["VELOCITY", "BUNGEECORD"],
+                    default: "VELOCITY",
                     nullable: true,
-                    description: 'Type of the reverse proxy server',
+                    description: "Type of the reverse proxy server",
                   },
                   memory: {
-                    type: 'string',
-                    default: '512M',
+                    type: "string",
+                    default: "512M",
                     nullable: true,
-                    description: 'Memory allocation for the server',
+                    description: "Memory allocation for the server",
                   },
                   environmentVariables: {
-                    type: 'array',
+                    type: "array",
                     nullable: true,
                     items: {
-                      type: 'object',
-                      required: ['key', 'value'],
+                      type: "object",
+                      required: ["key", "value"],
                       properties: {
                         key: {
-                          type: 'string',
-                          description: 'Environment variable key',
+                          type: "string",
+                          description: "Environment variable key",
                         },
                         value: {
-                          type: 'string',
-                          description: 'Environment variable value',
+                          type: "string",
+                          description: "Environment variable value",
                         },
                       },
                     },
@@ -83,33 +83,33 @@ export const REVERSE_PROXY_SERVER_CRD = {
                 },
               },
               status: {
-                type: 'object',
+                type: "object",
                 nullable: true,
                 properties: {
                   phase: {
-                    type: 'string',
-                    enum: ['Pending', 'Running', 'Failed'],
-                    description: 'Current phase of the server',
+                    type: "string",
+                    enum: ["Pending", "Running", "Failed"],
+                    description: "Current phase of the server",
                   },
                   message: {
-                    type: 'string',
+                    type: "string",
                     nullable: true,
-                    description: 'Detailed message about the current status',
+                    description: "Detailed message about the current status",
                   },
                   apiKey: {
-                    type: 'string',
+                    type: "string",
                     nullable: true,
-                    description: 'API key for server communication',
+                    description: "API key for server communication",
                   },
                   internalId: {
-                    type: 'string',
+                    type: "string",
                     nullable: true,
-                    description: 'Internal ID assigned by Minikura',
+                    description: "Internal ID assigned by Minikura",
                   },
                   lastSyncedAt: {
-                    type: 'string',
+                    type: "string",
                     nullable: true,
-                    description: 'Last time the server was synced with Kubernetes',
+                    description: "Last time the server was synced with Kubernetes",
                   },
                 },
               },
@@ -118,34 +118,34 @@ export const REVERSE_PROXY_SERVER_CRD = {
         },
         additionalPrinterColumns: [
           {
-            name: 'Type',
-            type: 'string',
-            jsonPath: '.spec.type',
+            name: "Type",
+            type: "string",
+            jsonPath: ".spec.type",
           },
           {
-            name: 'External Address',
-            type: 'string',
-            jsonPath: '.spec.external_address',
+            name: "External Address",
+            type: "string",
+            jsonPath: ".spec.external_address",
           },
           {
-            name: 'External Port',
-            type: 'integer',
-            jsonPath: '.spec.external_port',
+            name: "External Port",
+            type: "integer",
+            jsonPath: ".spec.external_port",
           },
           {
-            name: 'Status',
-            type: 'string',
-            jsonPath: '.status.phase',
+            name: "Status",
+            type: "string",
+            jsonPath: ".status.phase",
           },
           {
-            name: 'Age',
-            type: 'date',
-            jsonPath: '.metadata.creationTimestamp',
+            name: "Age",
+            type: "date",
+            jsonPath: ".metadata.creationTimestamp",
           },
         ],
       },
     ],
-    scope: 'Namespaced',
+    scope: "Namespaced",
     names: {
       singular: RESOURCE_TYPES.REVERSE_PROXY_SERVER.singular,
       plural: RESOURCE_TYPES.REVERSE_PROXY_SERVER.plural,
@@ -153,4 +153,4 @@ export const REVERSE_PROXY_SERVER_CRD = {
       shortNames: RESOURCE_TYPES.REVERSE_PROXY_SERVER.shortNames,
     },
   },
-}; 
+};

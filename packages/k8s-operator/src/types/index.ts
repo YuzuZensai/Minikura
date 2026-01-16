@@ -1,10 +1,10 @@
-import type { 
-  ServerType, 
-  ReverseProxyServerType, 
-  Server as PrismaServer, 
+import type {
+  ServerType,
+  ReverseProxyServerType,
+  Server as PrismaServer,
   ReverseProxyServer as PrismaReverseProxyServer,
-  CustomEnvironmentVariable
-} from '@minikura/db';
+  CustomEnvironmentVariable,
+} from "@minikura/db";
 
 // Base interface
 export interface CustomResource {
@@ -19,17 +19,23 @@ export interface CustomResource {
   };
 }
 
-export type ServerConfig = Pick<PrismaServer, 'id' | 'description' | 'type' | 'listen_port' | 'memory'> & {
+export type ServerConfig = Pick<
+  PrismaServer,
+  "id" | "description" | "type" | "listen_port" | "memory"
+> & {
   apiKey: string;
-  env_variables?: Array<Pick<CustomEnvironmentVariable, 'key' | 'value'>>;
+  env_variables?: Array<Pick<CustomEnvironmentVariable, "key" | "value">>;
 };
 
-export type MinecraftServerSpec = Pick<PrismaServer, 'id' | 'description' | 'type' | 'listen_port' | 'memory'> & {
-  environmentVariables?: Array<Pick<CustomEnvironmentVariable, 'key' | 'value'>>;
+export type MinecraftServerSpec = Pick<
+  PrismaServer,
+  "id" | "description" | "type" | "listen_port" | "memory"
+> & {
+  environmentVariables?: Array<Pick<CustomEnvironmentVariable, "key" | "value">>;
 };
 
 export interface MinecraftServerStatus {
-  phase: 'Pending' | 'Running' | 'Failed';
+  phase: "Pending" | "Running" | "Failed";
   message?: string;
   apiKey?: string;
   internalId?: string;
@@ -44,24 +50,27 @@ export interface MinecraftServerCRD extends CustomResource {
 // Reverse Proxy Types
 
 export type ReverseProxyConfig = Pick<
-  PrismaReverseProxyServer, 
-  'id' | 'description' | 'external_address' | 'external_port' | 'listen_port' | 'type' | 'memory'
+  PrismaReverseProxyServer,
+  "id" | "description" | "external_address" | "external_port" | "listen_port" | "type" | "memory"
 > & {
   apiKey: string;
-  env_variables?: Array<Pick<CustomEnvironmentVariable, 'key' | 'value'>>;
+  env_variables?: Array<Pick<CustomEnvironmentVariable, "key" | "value">>;
 };
 
 export type ReverseProxyServerSpec = Partial<
-  Pick<PrismaReverseProxyServer, 'id' | 'description' | 'external_address' | 'external_port' | 'listen_port' | 'type' | 'memory'>
+  Pick<
+    PrismaReverseProxyServer,
+    "id" | "description" | "external_address" | "external_port" | "listen_port" | "type" | "memory"
+  >
 > & {
   id: string;
   external_address: string;
   external_port: number;
-  environmentVariables?: Array<Pick<CustomEnvironmentVariable, 'key' | 'value'>>;
+  environmentVariables?: Array<Pick<CustomEnvironmentVariable, "key" | "value">>;
 };
 
 export interface ReverseProxyServerStatus {
-  phase: 'Pending' | 'Running' | 'Failed';
+  phase: "Pending" | "Running" | "Failed";
   message?: string;
   apiKey?: string;
   internalId?: string;
@@ -73,4 +82,4 @@ export interface ReverseProxyServerCRD extends CustomResource {
   status?: ReverseProxyServerStatus;
 }
 
-export type EnvironmentVariable = Pick<CustomEnvironmentVariable, 'key' | 'value'>; 
+export type EnvironmentVariable = Pick<CustomEnvironmentVariable, "key" | "value">;
