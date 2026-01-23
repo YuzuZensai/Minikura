@@ -20,9 +20,11 @@ services:
       - "6443:6443"   # k3s API
       - "25565:25565" # minecraft
       - "25577:25577" # velocity
+      - "30000:32767" # NodePort range
     volumes:
       - "../:/workspace"
       - "/sys/fs/cgroup:/sys/fs/cgroup:rw"
+      - vscode-server:/home/dev/.vscode-server
     working_dir: "/workspace"
     depends_on:
       db:
@@ -53,3 +55,4 @@ services:
 
 volumes:
   postgres-data:
+  vscode-server:

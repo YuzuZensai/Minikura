@@ -70,7 +70,7 @@ RUN userdel -r $(getent passwd ${HOST_UID} | cut -d: -f1) 2>/dev/null || true &&
     usermod -aG docker dev
 
 # Setup directories
-RUN mkdir -p /home/dev/.kube && chown -R dev:dev /home/dev
+RUN mkdir -p /home/dev/.kube /home/dev/.vscode-server && chown -R dev:dev /home/dev
 
 WORKDIR /workspace
 
