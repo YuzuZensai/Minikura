@@ -1,0 +1,47 @@
+import { prisma, type UpdateSuspensionInput, type UpdateUserInput, type User } from "@minikura/db";
+import { UserRole } from "../../../domain/entities/enums";
+import type { UserRepository } from "../../../domain/repositories/user.repository";
+
+export class PrismaUserRepository implements UserRepository {
+  async findById(id: string): Promise<User | null> {
+    return await prisma.user.findUnique({
+      where: { id },
+    });
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return await prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
+  async findAll(): Promise<User[]> {
+    return await prisma.user.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async update(id: string, input: UpdateUserInput): Promise<User> {
+    return await prisma.user.update({
+      where: { id },
+      data: input,
+    });
+  }
+
+  async updateSuspension(id: string, input: UpdateSuspensionInput): Promise<User> {
+    return await prisma.user.update({
+      where: { id },
+      data: input,
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await prisma.user.delete({
+      where: { id },
+    });
+  }
+
+  async count(): Promise<number> {
+    return await prisma.user.count();
+  }
+}

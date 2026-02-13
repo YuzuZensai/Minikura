@@ -58,6 +58,7 @@ build/Release
 
 node_modules/
 jspm_packages/
+src/generated/prisma/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 

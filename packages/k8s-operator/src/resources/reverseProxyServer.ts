@@ -8,7 +8,7 @@ export async function createReverseProxyServer(
   server: ReverseProxyConfig,
   appsApi: k8s.AppsV1Api,
   coreApi: k8s.CoreV1Api,
-  networkingApi: k8s.NetworkingV1Api,
+  _networkingApi: k8s.NetworkingV1Api,
   namespace: string
 ): Promise<void> {
   console.log(`Creating reverse proxy server ${server.id} in namespace '${namespace}'`);
@@ -34,19 +34,17 @@ export async function createReverseProxyServer(
   };
 
   try {
-    await coreApi.createNamespacedConfigMap(namespace, configMap);
+    await coreApi.createNamespacedConfigMap({ namespace, body: configMap });
     console.log(`Created ConfigMap for reverse proxy server ${server.id}`);
   } catch (error: any) {
-    // Conflict, update it
     if (error.response?.statusCode === 409) {
-      await coreApi.replaceNamespacedConfigMap(`${serverName}-config`, namespace, configMap);
+      await coreApi.replaceNamespacedConfigMap({ name: `${serverName}-config`, namespace, body: configMap });
       console.log(`Updated ConfigMap for reverse proxy server ${server.id}`);
     } else {
       throw error;
     }
   }
 
-  // Create Service for the reverse proxy - Always LoadBalancer for now
   const service = {
     apiVersion: "v1",
     kind: "Service",
@@ -76,19 +74,17 @@ export async function createReverseProxyServer(
   };
 
   try {
-    await coreApi.createNamespacedService(namespace, service);
+    await coreApi.createNamespacedService({ namespace, body: service });
     console.log(`Created Service for reverse proxy server ${server.id}`);
   } catch (error: any) {
-    // Conflict, update it
     if (error.response?.statusCode === 409) {
-      await coreApi.replaceNamespacedService(serverName, namespace, service);
+      await coreApi.replaceNamespacedService({ name: serverName, namespace, body: service });
       console.log(`Updated Service for reverse proxy server ${server.id}`);
     } else {
       throw error;
     }
   }
 
-  // Create Deployment
   const deployment = {
     apiVersion: "apps/v1",
     kind: "Deployment",
@@ -170,12 +166,11 @@ export async function createReverseProxyServer(
   };
 
   try {
-    await appsApi.createNamespacedDeployment(namespace, deployment);
+    await appsApi.createNamespacedDeployment({ namespace, body: deployment });
     console.log(`Created Deployment for reverse proxy server ${server.id}`);
   } catch (error: any) {
-    // Conflict, update it
     if (error.response?.statusCode === 409) {
-      await appsApi.replaceNamespacedDeployment(serverName, namespace, deployment);
+      await appsApi.replaceNamespacedDeployment({ name: serverName, namespace, body: deployment });
       console.log(`Updated Deployment for reverse proxy server ${server.id}`);
     } else {
       throw error;
@@ -194,7 +189,7 @@ export async function deleteReverseProxyServer(
   const name = `${serverType}-${proxyId}`;
 
   try {
-    await appsApi.deleteNamespacedDeployment(name, namespace);
+    await appsApi.deleteNamespacedDeployment({ name, namespace });
     console.log(`Deleted Deployment for reverse proxy server ${proxyId}`);
   } catch (error: any) {
     if (error.response?.statusCode !== 404) {
@@ -203,7 +198,7 @@ export async function deleteReverseProxyServer(
   }
 
   try {
-    await coreApi.deleteNamespacedService(name, namespace);
+    await coreApi.deleteNamespacedService({ name, namespace });
     console.log(`Deleted Service for reverse proxy server ${proxyId}`);
   } catch (error: any) {
     if (error.response?.statusCode !== 404) {
@@ -212,7 +207,7 @@ export async function deleteReverseProxyServer(
   }
 
   try {
-    await coreApi.deleteNamespacedConfigMap(`${name}-config`, namespace);
+    await coreApi.deleteNamespacedConfigMap({ name: `${name}-config`, namespace });
     console.log(`Deleted ConfigMap for reverse proxy server ${proxyId}`);
   } catch (error: any) {
     if (error.response?.statusCode !== 404) {

@@ -1,12 +1,74 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
+// Better Auth Models
+model User {
+  id             String    @id
+  name           String
+  email          String    @unique
+  emailVerified  Boolean   @default(false) @map("email_verified")
+  image          String?
+  role           String    @default("user")
+  isSuspended    Boolean   @default(false) @map("is_suspended")
+  suspendedUntil DateTime? @map("suspended_until")
+  banned         Boolean   @default(false) @map("banned")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  sessions       Session[]
+  accounts       Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id           String    @id
+  accountId    String    @map("account_id")
+  providerId   String    @map("provider_id")
+  userId       String    @map("user_id")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String?   @map("access_token")
+  refreshToken String?   @map("refresh_token")
+  idToken      String?   @map("id_token")
+  expiresAt    DateTime? @map("expires_at")
+  password     String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("verification")
+}
+
+// Application Models
 enum ServerType {
   STATEFUL
   STATELESS
@@ -17,6 +79,26 @@ enum ReverseProxyServerType {
   BUNGEECORD
 }
 
+enum ServiceType {
+  CLUSTER_IP
+  NODE_PORT
+  LOAD_BALANCER
+}
+
+enum GameMode {
+  SURVIVAL
+  CREATIVE
+  ADVENTURE
+  SPECTATOR
+}
+
+enum ServerDifficulty {
+  PEACEFUL
+  EASY
+  NORMAL
+  HARD
+}
+
 model ReverseProxyServer {
   id               String                      @id @default(cuid())
   type             ReverseProxyServerType
@@ -24,43 +106,62 @@ model ReverseProxyServer {
   external_address String
   external_port    Int
   listen_port      Int                         @default(25565)
-  memory           String                      @default("512M")
+  memory           Int                         @default(512) // Memory in MB
+  cpu_request      String?                     @default("250m") // CPU request, e.g., "250m", "1"
+  cpu_limit        String?                     @default("500m") // CPU limit, e.g., "500m", "2"
+  service_type     ServiceType                 @default(LOAD_BALANCER)
+  node_port        Int?
   api_key          String                      @unique
   env_variables    CustomEnvironmentVariable[] @relation("ReverseProxyServerEnvVars")
   created_at       DateTime                    @default(now())
   updated_at       DateTime                    @updatedAt
 }
 
+enum MinecraftServerJarType {
+  VANILLA
+  PAPER
+  SPIGOT
+  PURPUR
+  FABRIC
+  FORGE
+  FOLIA
+}
+
 model Server {
-  id            String                      @id @default(cuid())
-  type          ServerType
-  description   String?
-  listen_port   Int                         @default(25565)
-  memory        String                      @default("1G")
-  env_variables CustomEnvironmentVariable[] @relation("ServerEnvVars")
-  api_key       String                      @unique
-  created_at    DateTime                    @default(now())
-  updated_at    DateTime                    @updatedAt
-}
+  id                   String                      @id @default(cuid())
+  type                 ServerType
+  description          String?
+  listen_port          Int                         @default(25565)
+  memory               Int                         @default(2048) // Memory limit in MB
+  memory_request       Int                         @default(1024) // Memory request in MB
+  cpu_request          String?                     @default("500m") // CPU request, e.g., "500m", "1"
+  cpu_limit            String?                     @default("2") // CPU limit, e.g., "2", "500m"
+  service_type         ServiceType                 @default(CLUSTER_IP)
+  node_port            Int?
+  env_variables        CustomEnvironmentVariable[] @relation("ServerEnvVars")
+  api_key              String                      @unique
 
-model User {
-  id         String    @id @default(cuid())
-  username   String    @unique
-  password   String
-  sessions   Session[]
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-}
+  // Minecraft specific configurations
+  jar_type             MinecraftServerJarType      @default(VANILLA)
+  minecraft_version    String                      @default("LATEST") // e.g., "LATEST", "1.20.4", "SNAPSHOT"
 
-model Session {
-  id         String   @id @default(cuid())
-  token      String   @unique
-  user_id    String
-  user       User     @relation(fields: [user_id], references: [id])
-  revoked    Boolean  @default(false)
-  expires_at DateTime
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  // JVM Options
+  jvm_opts             String?                     // Custom JVM options
+  use_aikar_flags      Boolean                     @default(false)
+  use_meowice_flags    Boolean                     @default(false)
+
+  // Server Properties (common ones)
+  difficulty           ServerDifficulty            @default(EASY)
+  game_mode            GameMode                    @default(SURVIVAL)
+  max_players          Int                         @default(20)
+  pvp                  Boolean                     @default(true)
+  online_mode          Boolean                     @default(true)
+  motd                 String?
+  level_seed           String?
+  level_type           String?                     // default, flat, largeBiomes, amplified
+
+  created_at           DateTime                    @default(now())
+  updated_at           DateTime                    @updatedAt
 }
 
 model CustomEnvironmentVariable {

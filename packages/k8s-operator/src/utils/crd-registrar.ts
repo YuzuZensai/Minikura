@@ -27,11 +27,10 @@ async function registerCRDs(k8sClient: KubernetesClient): Promise<void> {
     console.log("Registering CRDs...");
 
     try {
-      await apiExtensionsClient.createCustomResourceDefinition(MINECRAFT_SERVER_CRD);
+      await apiExtensionsClient.createCustomResourceDefinition({ body: MINECRAFT_SERVER_CRD });
       console.log(`MinecraftServer CRD created successfully (${API_GROUP}/${API_VERSION})`);
     } catch (error: any) {
       if (error.response?.statusCode === 409) {
-        // TODO: Handle conflict
         console.log("MinecraftServer CRD already exists");
       } else {
         console.error("Error creating MinecraftServer CRD:", error);
@@ -39,11 +38,10 @@ async function registerCRDs(k8sClient: KubernetesClient): Promise<void> {
     }
 
     try {
-      await apiExtensionsClient.createCustomResourceDefinition(REVERSE_PROXY_SERVER_CRD);
+      await apiExtensionsClient.createCustomResourceDefinition({ body: REVERSE_PROXY_SERVER_CRD });
       console.log(`ReverseProxyServer CRD created successfully (${API_GROUP}/${API_VERSION})`);
     } catch (error: any) {
       if (error.response?.statusCode === 409) {
-        // TODO: Handle conflict
         console.log("ReverseProxyServer CRD already exists");
       } else {
         console.error("Error creating ReverseProxyServer CRD:", error);

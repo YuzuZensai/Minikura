@@ -1,4 +1,7 @@
-import { edenTreaty } from "@elysiajs/eden";
-import type { App } from "@minikura/backend";
+import { treaty } from "@elysiajs/eden";
 
-export const api = edenTreaty<App>("http://localhost:3000");
+export const api = treaty("http://localhost:3000");
+
+export * from "./constants";
+export * from "./labels";
+export * from "./types";

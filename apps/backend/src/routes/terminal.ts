@@ -1,0 +1,351 @@
+import * as k8s from "@kubernetes/client-node";
+import { Elysia } from "elysia";
+import { getErrorMessage } from "../lib/errors";
+import { K8sService } from "../services/k8s";
+
+type TerminalWsData = {
+  query?: Record<string, string>;
+  k8sWs?: WebSocket;
+};
+
+type TerminalWs = {
+  data: TerminalWsData;
+  send: (message: string) => void;
+  close: () => void;
+};
+
+type TerminalMessage =
+  | { type: "input"; data: string }
+  | { type: "resize"; cols: number; rows: number };
+
+type BunTlsOptions = {
+  rejectUnauthorized: boolean;
+  cert?: string;
+  key?: string;
+  ca?: string;
+};
+
+export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
+  open: async (ws: TerminalWs) => {
+    const podName = ws.data.query?.podName;
+    const container = ws.data.query?.container;
+    const shell = ws.data.query?.shell || "/bin/sh";
+    const mode = ws.data.query?.mode || "shell";
+
+    console.log(
+      `Opening terminal for pod: ${podName}, container: ${container}, shell: ${shell}, mode: ${mode}`
+    );
+
+    if (!podName) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          data: "Pod name is required",
+        })
+      );
+      ws.close();
+      return;
+    }
+
+    try {
+      const k8sService = K8sService.getInstance();
+      if (!k8sService.isInitialized()) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            data: "Kubernetes client not initialized",
+          })
+        );
+        ws.close();
+        return;
+      }
+
+      const kc = k8sService.getKubeConfig();
+      const namespace = k8sService.getNamespace();
+      const cluster = kc.getCurrentCluster();
+      const user = kc.getCurrentUser();
+
+      if (!cluster) {
+        throw new Error("No current cluster configured");
+      }
+
+      const server = cluster.server;
+      const isAttach = mode === "attach";
+      const apiPath = isAttach
+        ? `/api/v1/namespaces/${namespace}/pods/${podName}/attach`
+        : `/api/v1/namespaces/${namespace}/pods/${podName}/exec`;
+
+      const params = new URLSearchParams({
+        stdout: "true",
+        stderr: "true",
+        stdin: "true",
+        tty: "true",
+      });
+
+      if (!isAttach) {
+        params.append("command", shell);
+      }
+
+      if (container) {
+        params.append("container", container);
+      }
+
+      const wsUrl = `${server}${apiPath}?${params.toString()}`
+        .replace("https://", "wss://")
+        .replace("http://", "ws://");
+
+      console.log(`Connecting to Kubernetes: ${wsUrl}`);
+
+      const headers: Record<string, string> = {
+        Connection: "Upgrade",
+        Upgrade: "websocket",
+        "Sec-WebSocket-Version": "13",
+        "Sec-WebSocket-Key": Buffer.from(Math.random().toString())
+          .toString("base64")
+          .substring(0, 24),
+        "Sec-WebSocket-Protocol": "v4.channel.k8s.io",
+      };
+
+      if (user?.token) {
+        headers["Authorization"] = `Bearer ${user.token}`;
+      } else if (user?.username && user?.password) {
+        const auth = Buffer.from(`${user.username}:${user.password}`).toString("base64");
+        headers["Authorization"] = `Basic ${auth}`;
+      }
+
+      const tlsOptions: BunTlsOptions = {
+        rejectUnauthorized: cluster.skipTLSVerify !== true,
+      };
+
+      if (user?.certData) {
+        tlsOptions.cert = Buffer.from(user.certData, "base64").toString();
+      }
+      if (user?.keyData) {
+        tlsOptions.key = Buffer.from(user.keyData, "base64").toString();
+      }
+      if (cluster.caData) {
+        tlsOptions.ca = Buffer.from(cluster.caData, "base64").toString();
+      }
+
+      const wsOptions = { headers, tls: tlsOptions };
+      const k8sWs = new WebSocket(wsUrl, wsOptions as unknown as string | string[]);
+      ws.data.k8sWs = k8sWs;
+
+      k8sWs.onopen = async () => {
+        console.log(`Connected to Kubernetes ${isAttach ? "attach" : "exec"}`);
+
+        if (isAttach) {
+          try {
+            const coreApi = k8sService.getCoreApi();
+            const logs = await coreApi.readNamespacedPodLog({
+              name: podName,
+              namespace: namespace,
+              container: container,
+            });
+
+            if (logs) {
+              const lines = logs.split("\n");
+              for (const line of lines) {
+                ws.send(
+                  JSON.stringify({
+                    type: "output",
+                    data: line + "\r\n",
+                  })
+                );
+              }
+            }
+
+            ws.send(
+              JSON.stringify({
+                type: "ready",
+                data: "Attached to container (showing logs since start)",
+              })
+            );
+          } catch (logError) {
+            console.error("Failed to fetch historical logs:", logError);
+            ws.send(
+              JSON.stringify({
+                type: "ready",
+                data: "Attached to container",
+              })
+            );
+          }
+        } else {
+          ws.send(
+            JSON.stringify({
+              type: "ready",
+              data: "Shell ready",
+            })
+          );
+        }
+      };
+
+      k8sWs.onmessage = (event: MessageEvent) => {
+        try {
+          const data = event.data;
+
+          let buffer: Uint8Array;
+
+          if (data instanceof Uint8Array) {
+            buffer = data;
+          } else if (data instanceof ArrayBuffer) {
+            buffer = new Uint8Array(data);
+          } else if (Buffer.isBuffer(data)) {
+            buffer = new Uint8Array(data);
+          } else if (data instanceof Blob) {
+            data.arrayBuffer().then((ab) => {
+              const uint8 = new Uint8Array(ab);
+              processBuffer(uint8);
+            });
+            return;
+          } else if (typeof data === "string") {
+            ws.send(JSON.stringify({ type: "output", data }));
+            return;
+          } else {
+            console.log("Unknown data type:", typeof data, "constructor:", data?.constructor?.name);
+            buffer = new Uint8Array(data);
+          }
+
+          processBuffer(buffer);
+        } catch (err) {
+          console.error("Error processing Kubernetes message:", err);
+        }
+      };
+
+      function processBuffer(buffer: Uint8Array): void {
+        if (buffer.length === 0) {
+          return;
+        }
+
+        const channel = buffer[0];
+        const message = new TextDecoder().decode(buffer.slice(1));
+
+        if (channel === 1 || channel === 2) {
+          ws.send(JSON.stringify({ type: "output", data: message }));
+        } else if (channel === 3) {
+          console.error("Kubernetes error channel:", message);
+          ws.send(JSON.stringify({ type: "error", data: message }));
+        }
+      }
+
+      k8sWs.onerror = (error: Event) => {
+        console.error("Kubernetes WebSocket error:", error);
+        const message = getErrorMessage(error);
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            data: `Connection error: ${message}`,
+          })
+        );
+      };
+
+      k8sWs.onclose = (event: CloseEvent) => {
+        console.log(`Kubernetes WebSocket closed: ${event.code} ${event.reason}`);
+        ws.send(
+          JSON.stringify({
+            type: "close",
+            data: event.reason || "Connection closed",
+          })
+        );
+        ws.close();
+      };
+    } catch (error: unknown) {
+      console.error("Error setting up terminal:", error);
+      if (error instanceof Error) {
+        console.error("Error stack:", error.stack);
+      }
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          data: `Failed to connect: ${getErrorMessage(error)}`,
+        })
+      );
+      ws.close();
+    }
+  },
+
+  message: async (ws: TerminalWs, message: unknown) => {
+    try {
+      const data = parseTerminalMessage(message);
+      if (!data) {
+        return;
+      }
+
+      const k8sWs = ws.data.k8sWs;
+
+      if (!k8sWs || k8sWs.readyState !== WebSocket.OPEN) {
+        console.error("Kubernetes WebSocket not ready, state:", k8sWs?.readyState);
+        return;
+      }
+
+      if (data.type === "input") {
+        console.log("Sending input to k8s:", data.data);
+        const encoder = new TextEncoder();
+        const textData = encoder.encode(data.data);
+        const buffer = new Uint8Array(1 + textData.length);
+        buffer[0] = 0;
+        buffer.set(textData, 1);
+        k8sWs.send(buffer.buffer);
+      } else if (data.type === "resize") {
+        const resizeMsg = JSON.stringify({
+          Width: data.cols,
+          Height: data.rows,
+        });
+        const encoder = new TextEncoder();
+        const textData = encoder.encode(resizeMsg);
+        const buffer = new Uint8Array(1 + textData.length);
+        buffer[0] = 4;
+        buffer.set(textData, 1);
+        k8sWs.send(buffer.buffer);
+      }
+    } catch (error: unknown) {
+      console.error("Error handling terminal message:", error);
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          data: `Error: ${getErrorMessage(error)}`,
+        })
+      );
+    }
+  },
+
+  close: (ws: TerminalWs) => {
+    console.log("Client WebSocket closed");
+    const k8sWs = ws.data.k8sWs;
+    if (k8sWs && k8sWs.readyState === WebSocket.OPEN) {
+      k8sWs.close();
+    }
+  },
+});
+
+function parseTerminalMessage(message: unknown): TerminalMessage | null {
+  if (typeof message === "string") {
+    try {
+      const parsed = JSON.parse(message) as unknown;
+      return isTerminalMessage(parsed) ? parsed : null;
+    } catch {
+      console.error("Failed to parse message as JSON:", message);
+      return null;
+    }
+  }
+  return null;
+}
+
+function isTerminalMessage(value: unknown): value is TerminalMessage {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  if (!("type" in value)) {
+    return false;
+  }
+  const type = (value as { type?: unknown }).type;
+  if (type === "input") {
+    return typeof (value as { data?: unknown }).data === "string";
+  }
+  if (type === "resize") {
+    const cols = (value as { cols?: unknown }).cols;
+    const rows = (value as { rows?: unknown }).rows;
+    return typeof cols === "number" && typeof rows === "number";
+  }
+  return false;
+}

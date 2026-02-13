@@ -1,17 +1,18 @@
-import { api } from "@minikura/api";
+import { treaty } from "@elysiajs/eden";
+import type { App } from "@minikura/backend";
+import { redirect } from "next/navigation";
 
-async function fetchData() {
-  const response = await api.index.get();
-  return response;
-}
+export const dynamic = "force-dynamic";
 
-export default async function Page() {
-  const data = await fetchData();
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const api = treaty<App>(apiUrl);
 
-  return (
-    <div>
-      <h1>Hello React</h1>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-    </div>
-  );
+export default async function HomePage() {
+  const { data } = await api.bootstrap.status.get();
+
+  if (data?.needsSetup) {
+    redirect("/bootstrap");
+  } else {
+    redirect("/login");
+  }
 }

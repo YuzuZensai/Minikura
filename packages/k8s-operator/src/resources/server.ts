@@ -1,14 +1,14 @@
 import type * as k8s from "@kubernetes/client-node";
 import { ServerType } from "@minikura/db";
 import { LABEL_PREFIX } from "../config/constants";
-import { calculateJavaMemory, convertToK8sFormat } from "../utils/memory";
 import type { ServerConfig } from "../types";
+import { calculateJavaMemory, convertToK8sFormat } from "../utils/memory";
 
 export async function createServer(
   server: ServerConfig,
   appsApi: k8s.AppsV1Api,
   coreApi: k8s.CoreV1Api,
-  networkingApi: k8s.NetworkingV1Api,
+  _networkingApi: k8s.NetworkingV1Api,
   namespace: string
 ): Promise<void> {
   const serverName = `minecraft-${server.id}`;
@@ -32,12 +32,15 @@ export async function createServer(
   };
 
   try {
-    await coreApi.createNamespacedConfigMap(namespace, configMap);
+    await coreApi.createNamespacedConfigMap({ namespace, body: configMap });
     console.log(`Created ConfigMap for server ${server.id}`);
   } catch (err: any) {
-    // Conflict, update it
     if (err.response?.statusCode === 409) {
-      await coreApi.replaceNamespacedConfigMap(`${serverName}-config`, namespace, configMap);
+      await coreApi.replaceNamespacedConfigMap({
+        name: `${serverName}-config`,
+        namespace,
+        body: configMap,
+      });
       console.log(`Updated ConfigMap for server ${server.id}`);
     } else {
       throw err;
@@ -68,17 +71,16 @@ export async function createServer(
           name: "minecraft",
         },
       ],
-      type: "ClusterIP", // Always ClusterIP for regular servers
+      type: "ClusterIP",
     },
   };
 
   try {
-    await coreApi.createNamespacedService(namespace, service);
+    await coreApi.createNamespacedService({ namespace, body: service });
     console.log(`Created Service for server ${server.id}`);
   } catch (err: any) {
-    // Conflict, update it
     if (err.response?.statusCode === 409) {
-      await coreApi.replaceNamespacedService(serverName, namespace, service);
+      await coreApi.replaceNamespacedService({ name: serverName, namespace, body: service });
       console.log(`Updated Service for server ${server.id}`);
     } else {
       throw err;
@@ -205,12 +207,11 @@ async function createDeployment(
   };
 
   try {
-    await appsApi.createNamespacedDeployment(namespace, deployment);
+    await appsApi.createNamespacedDeployment({ namespace, body: deployment });
     console.log(`Created Deployment for server ${server.id}`);
   } catch (err: any) {
     if (err.response?.statusCode === 409) {
-      // Deployment already exists, update it
-      await appsApi.replaceNamespacedDeployment(serverName, namespace, deployment);
+      await appsApi.replaceNamespacedDeployment({ name: serverName, namespace, body: deployment });
       console.log(`Updated Deployment for server ${server.id}`);
     } else {
       throw err;
@@ -351,12 +352,15 @@ async function createStatefulSet(
   };
 
   try {
-    await appsApi.createNamespacedStatefulSet(namespace, statefulSet);
+    await appsApi.createNamespacedStatefulSet({ namespace, body: statefulSet });
     console.log(`Created StatefulSet for server ${server.id}`);
   } catch (err: any) {
     if (err.response?.statusCode === 409) {
-      // StatefulSet already exists, update it
-      await appsApi.replaceNamespacedStatefulSet(serverName, namespace, statefulSet);
+      await appsApi.replaceNamespacedStatefulSet({
+        name: serverName,
+        namespace,
+        body: statefulSet,
+      });
       console.log(`Updated StatefulSet for server ${server.id}`);
     } else {
       throw err;
@@ -366,15 +370,14 @@ async function createStatefulSet(
 
 export async function deleteServer(
   serverId: string,
-  serverId2: string,
   appsApi: k8s.AppsV1Api,
   coreApi: k8s.CoreV1Api,
   namespace: string
 ): Promise<void> {
-  const serverName = `minecraft-${serverId2}`;
+  const serverName = `minecraft-${serverId}`;
 
   try {
-    await appsApi.deleteNamespacedDeployment(serverName, namespace);
+    await appsApi.deleteNamespacedDeployment({ name: serverName, namespace });
     console.log(`Deleted Deployment for server ${serverName}`);
   } catch (err: any) {
     if (err.response?.statusCode !== 404) {
@@ -383,7 +386,7 @@ export async function deleteServer(
   }
 
   try {
-    await appsApi.deleteNamespacedStatefulSet(serverName, namespace);
+    await appsApi.deleteNamespacedStatefulSet({ name: serverName, namespace });
     console.log(`Deleted StatefulSet for server ${serverName}`);
   } catch (err: any) {
     if (err.response?.statusCode !== 404) {
@@ -392,7 +395,7 @@ export async function deleteServer(
   }
 
   try {
-    await coreApi.deleteNamespacedService(serverName, namespace);
+    await coreApi.deleteNamespacedService({ name: serverName, namespace });
     console.log(`Deleted Service for server ${serverName}`);
   } catch (err: any) {
     if (err.response?.statusCode !== 404) {
@@ -401,7 +404,7 @@ export async function deleteServer(
   }
 
   try {
-    await coreApi.deleteNamespacedConfigMap(`${serverName}-config`, namespace);
+    await coreApi.deleteNamespacedConfigMap({ name: `${serverName}-config`, namespace });
     console.log(`Deleted ConfigMap for server ${serverName}`);
   } catch (err: any) {
     if (err.response?.statusCode !== 404) {

@@ -36,6 +36,9 @@ done
 # Create namespace
 kubectl create namespace minikura --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null || true
 
+# Uncomment the line below if you need service account token in .env
+# bash /workspace/.devcontainer/setup-k8s-token.sh
+
 # Install dependencies
 echo "==> Installing dependencies..."
 cd /workspace

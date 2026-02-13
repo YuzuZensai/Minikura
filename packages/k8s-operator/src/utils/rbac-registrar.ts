@@ -38,7 +38,7 @@ export async function registerRBACResources(k8sClient: KubernetesClient): Promis
 async function registerNamespace(k8sClient: KubernetesClient): Promise<void> {
   try {
     const coreApi = k8sClient.getCoreApi();
-    await coreApi.createNamespace(minikuraNamespace);
+    await coreApi.createNamespace({ body: minikuraNamespace });
     console.log(`Created namespace ${minikuraNamespace.metadata.name}`);
   } catch (error: any) {
     if (error.response?.statusCode === 409) {
@@ -55,10 +55,10 @@ async function registerNamespace(k8sClient: KubernetesClient): Promise<void> {
 async function registerServiceAccount(k8sClient: KubernetesClient): Promise<void> {
   try {
     const coreApi = k8sClient.getCoreApi();
-    await coreApi.createNamespacedServiceAccount(
-      minikuraServiceAccount.metadata.namespace,
-      minikuraServiceAccount
-    );
+    await coreApi.createNamespacedServiceAccount({
+      namespace: minikuraServiceAccount.metadata.namespace,
+      body: minikuraServiceAccount
+    });
     console.log(`Created service account ${minikuraServiceAccount.metadata.name}`);
   } catch (error: any) {
     if (error.response?.statusCode === 409) {
@@ -74,10 +74,9 @@ async function registerServiceAccount(k8sClient: KubernetesClient): Promise<void
  */
 async function registerClusterRole(k8sClient: KubernetesClient): Promise<void> {
   try {
-    // TODO: I can't get this working with the k8s client, so I'm using fetch directly, fix later
     const kc = k8sClient.getKubeConfig();
-    const opts = {};
-    kc.applyToRequest(opts as any);
+    const opts: any = {};
+    await kc.applyToHTTPSOptions(opts);
 
     // Get cluster URL
     const cluster = kc.getCurrentCluster();
@@ -128,10 +127,9 @@ async function registerClusterRole(k8sClient: KubernetesClient): Promise<void> {
  */
 async function registerClusterRoleBinding(k8sClient: KubernetesClient): Promise<void> {
   try {
-    // We need to use the raw client for cluster roles
     const kc = k8sClient.getKubeConfig();
-    const opts = {};
-    kc.applyToRequest(opts as any);
+    const opts: any = {};
+    await kc.applyToHTTPSOptions(opts);
 
     // Get cluster URL
     const cluster = kc.getCurrentCluster();
@@ -212,11 +210,11 @@ export async function registerOperatorDeployment(
 
       await k8sClient
         .getAppsApi()
-        .replaceNamespacedDeployment(
-          deployment.metadata.name,
-          deployment.metadata.namespace,
-          deployment
-        );
+        .replaceNamespacedDeployment({
+          name: deployment.metadata.name,
+          namespace: deployment.metadata.namespace,
+          body: deployment
+        });
       console.log(`Updated deployment ${deployment.metadata.name}`);
     } else {
       throw error;

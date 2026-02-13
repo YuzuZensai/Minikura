@@ -39,7 +39,7 @@ export class ServerController extends BaseController {
           console.log(
             `Server ${server.id} (${serverId}) has been removed from the database, deleting from Kubernetes...`
           );
-          await deleteServer(serverId, server.id, appsApi, coreApi, this.namespace);
+          await deleteServer(serverId, appsApi, coreApi, this.namespace);
           this.deployedServers.delete(serverId);
         }
       }
