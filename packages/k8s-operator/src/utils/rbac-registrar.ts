@@ -1,84 +1,80 @@
-import type { KubernetesClient } from "./k8s-client";
+import fetch from "node-fetch";
 import {
-  minikuraNamespace,
-  minikuraServiceAccount,
   minikuraClusterRole,
   minikuraClusterRoleBinding,
+  minikuraNamespace,
   minikuraOperatorDeployment,
+  minikuraServiceAccount,
 } from "../crds/rbac";
-import fetch from "node-fetch";
+import type { KubernetesClient } from "./k8s-client";
+import { logger } from "./logger";
 
-/**
- * Registers all RBAC resources required
- * @param k8sClient The Kubernetes client instance
- */
 export async function registerRBACResources(k8sClient: KubernetesClient): Promise<void> {
   try {
-    console.log("Starting RBAC resources registration...");
+    logger.info("Starting RBAC resources registration");
 
     await registerNamespace(k8sClient);
     await registerServiceAccount(k8sClient);
     await registerClusterRole(k8sClient);
     await registerClusterRoleBinding(k8sClient);
 
-    console.log("RBAC resources registration completed successfully");
+    logger.info("RBAC resources registration completed successfully");
   } catch (error: any) {
-    console.error("Error registering RBAC resources:", error.message);
+    logger.error(
+      {
+        err: error,
+        message: error.message,
+        statusCode: error.response?.statusCode,
+        body: error.response?.body,
+      },
+      "Error registering RBAC resources"
+    );
     if (error.response) {
-      console.error(`Response status: ${error.response.statusCode}`);
-      console.error(`Response body: ${JSON.stringify(error.response.body)}`);
     }
     throw error;
   }
 }
 
-/**
- * Registers the namespace
- */
 async function registerNamespace(k8sClient: KubernetesClient): Promise<void> {
   try {
     const coreApi = k8sClient.getCoreApi();
     await coreApi.createNamespace({ body: minikuraNamespace });
-    console.log(`Created namespace ${minikuraNamespace.metadata.name}`);
+    logger.info({ namespace: minikuraNamespace.metadata.name }, "Created namespace");
   } catch (error: any) {
-    if (error.response?.statusCode === 409) {
-      console.log(`Namespace ${minikuraNamespace.metadata.name} already exists`);
+    if (error.code === 409) {
+      logger.debug({ namespace: minikuraNamespace.metadata.name }, "Namespace already exists");
     } else {
       throw error;
     }
   }
 }
 
-/**
- * Registers the service account
- */
 async function registerServiceAccount(k8sClient: KubernetesClient): Promise<void> {
   try {
     const coreApi = k8sClient.getCoreApi();
     await coreApi.createNamespacedServiceAccount({
       namespace: minikuraServiceAccount.metadata.namespace,
-      body: minikuraServiceAccount
+      body: minikuraServiceAccount,
     });
-    console.log(`Created service account ${minikuraServiceAccount.metadata.name}`);
+    logger.info(
+      { serviceAccount: minikuraServiceAccount.metadata.name },
+      "Created service account"
+    );
   } catch (error: any) {
-    if (error.response?.statusCode === 409) {
-      console.log(`Service account ${minikuraServiceAccount.metadata.name} already exists`);
+    if (error.code === 409) {
+      logger.debug(`Service account ${minikuraServiceAccount.metadata.name} already exists`);
     } else {
       throw error;
     }
   }
 }
 
-/**
- * Registers the cluster role
- */
 async function registerClusterRole(k8sClient: KubernetesClient): Promise<void> {
   try {
     const kc = k8sClient.getKubeConfig();
     const opts: any = {};
     await kc.applyToHTTPSOptions(opts);
 
-    // Get cluster URL
     const cluster = kc.getCurrentCluster();
     if (!cluster) {
       throw new Error("No active cluster found in KubeConfig");
@@ -99,9 +95,9 @@ async function registerClusterRole(k8sClient: KubernetesClient): Promise<void> {
       );
 
       if (response.ok) {
-        console.log(`Created cluster role ${minikuraClusterRole.metadata.name}`);
+        logger.debug(`Created cluster role ${minikuraClusterRole.metadata.name}`);
       } else if (response.status === 409) {
-        console.log(`Cluster role ${minikuraClusterRole.metadata.name} already exists`);
+        logger.debug(`Cluster role ${minikuraClusterRole.metadata.name} already exists`);
       } else {
         const text = await response.text();
         throw new Error(
@@ -109,35 +105,29 @@ async function registerClusterRole(k8sClient: KubernetesClient): Promise<void> {
         );
       }
     } catch (error: any) {
-      // If the error message contains "already exists", that's OK
       if (error.message?.includes("already exists") || error.message?.includes("409")) {
-        console.log(`Cluster role ${minikuraClusterRole.metadata.name} already exists`);
+        logger.debug(`Cluster role ${minikuraClusterRole.metadata.name} already exists`);
       } else {
         throw error;
       }
     }
   } catch (error: any) {
-    console.error(`Error registering cluster role:`, error.message);
+    logger.error(`Error registering cluster role:`, error.message);
     throw error;
   }
 }
 
-/**
- * Registers the Minikura cluster role binding
- */
 async function registerClusterRoleBinding(k8sClient: KubernetesClient): Promise<void> {
   try {
     const kc = k8sClient.getKubeConfig();
     const opts: any = {};
     await kc.applyToHTTPSOptions(opts);
 
-    // Get cluster URL
     const cluster = kc.getCurrentCluster();
     if (!cluster) {
       throw new Error("No active cluster found in KubeConfig");
     }
 
-    // Create the cluster role binding
     const { default: fetch } = await import("node-fetch");
 
     try {
@@ -155,9 +145,9 @@ async function registerClusterRoleBinding(k8sClient: KubernetesClient): Promise<
       );
 
       if (response.ok) {
-        console.log(`Created cluster role binding ${minikuraClusterRoleBinding.metadata.name}`);
+        logger.debug(`Created cluster role binding ${minikuraClusterRoleBinding.metadata.name}`);
       } else if (response.status === 409) {
-        console.log(
+        logger.debug(
           `Cluster role binding ${minikuraClusterRoleBinding.metadata.name} already exists`
         );
       } else {
@@ -167,10 +157,8 @@ async function registerClusterRoleBinding(k8sClient: KubernetesClient): Promise<
         );
       }
     } catch (error: any) {
-      // If the error message contains "already exists"
-      // TODO: Potentially better error handling here
       if (error.message?.includes("already exists") || error.message?.includes("409")) {
-        console.log(
+        logger.debug(
           `Cluster role binding ${minikuraClusterRoleBinding.metadata.name} already exists`
         );
       } else {
@@ -178,44 +166,36 @@ async function registerClusterRoleBinding(k8sClient: KubernetesClient): Promise<
       }
     }
   } catch (error: any) {
-    console.error(`Error registering cluster role binding:`, error.message);
+    logger.error(`Error registering cluster role binding:`, error.message);
     throw error;
   }
 }
 
-/**
- * Registers the Minikura operator deployment
- * Note: This requires the secret to be created first
- */
 export async function registerOperatorDeployment(
   k8sClient: KubernetesClient,
   registryUrl: string
 ): Promise<void> {
   try {
-    // Replace the registry URL placeholder, for future use
     const deployment = JSON.parse(
       JSON.stringify(minikuraOperatorDeployment).replace("${REGISTRY_URL}", registryUrl)
     );
 
     const appsApi = k8sClient.getAppsApi();
     await appsApi.createNamespacedDeployment(deployment.metadata.namespace, deployment);
-    console.log(`Created deployment ${deployment.metadata.name}`);
+    logger.debug(`Created deployment ${deployment.metadata.name}`);
   } catch (error: any) {
-    if (error.response?.statusCode === 409) {
-      console.log(`Deployment ${minikuraOperatorDeployment.metadata.name} already exists`);
-      // Update the deployment if it already exists
+    if (error.code === 409) {
+      logger.debug(`Deployment ${minikuraOperatorDeployment.metadata.name} already exists`);
       const deployment = JSON.parse(
         JSON.stringify(minikuraOperatorDeployment).replace("${REGISTRY_URL}", registryUrl)
       );
 
-      await k8sClient
-        .getAppsApi()
-        .replaceNamespacedDeployment({
-          name: deployment.metadata.name,
-          namespace: deployment.metadata.namespace,
-          body: deployment
-        });
-      console.log(`Updated deployment ${deployment.metadata.name}`);
+      await k8sClient.getAppsApi().replaceNamespacedDeployment({
+        name: deployment.metadata.name,
+        namespace: deployment.metadata.namespace,
+        body: deployment,
+      });
+      logger.debug(`Updated deployment ${deployment.metadata.name}`);
     } else {
       throw error;
     }

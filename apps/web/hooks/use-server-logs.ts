@@ -1,14 +1,9 @@
 "use client";
 
-import type {
-  ConnectionInfo,
-  DeploymentInfo,
-  PodInfo,
-  StatefulSetInfo,
-} from "@minikura/api";
+import type { ConnectionInfo, DeploymentInfo, PodInfo, StatefulSetInfo } from "@minikura/api";
 import { labelKeys } from "@minikura/api";
 import { useCallback, useState } from "react";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
 
 export function useServerLogs(serverId: string) {
   const [pods, setPods] = useState<PodInfo[]>([]);
@@ -23,8 +18,7 @@ export function useServerLogs(serverId: string) {
       if (response.data) {
         setPods(response.data as PodInfo[]);
       }
-    } catch (error) {
-      console.error("Failed to fetch pods:", error);
+    } catch (_error) {
     } finally {
       setLoading(false);
     }
@@ -42,9 +36,7 @@ export function useServerLogs(serverId: string) {
           setStatefulSetInfo(serverStatefulSet);
         }
       }
-    } catch (error) {
-      console.error("Failed to fetch StatefulSet info:", error);
-    }
+    } catch (_error) {}
   }, [serverId]);
 
   const fetchDeploymentInfo = useCallback(async () => {
@@ -59,9 +51,7 @@ export function useServerLogs(serverId: string) {
           setDeploymentInfo(serverDeployment);
         }
       }
-    } catch (error) {
-      console.error("Failed to fetch Deployment info:", error);
-    }
+    } catch (_error) {}
   }, [serverId]);
 
   const fetchConnectionInfo = useCallback(async () => {
@@ -70,9 +60,7 @@ export function useServerLogs(serverId: string) {
       if (response.data) {
         setConnectionInfo(response.data as ConnectionInfo);
       }
-    } catch (error) {
-      console.error("Failed to fetch connection info:", error);
-    }
+    } catch (_error) {}
   }, [serverId]);
 
   const refreshAll = useCallback(async () => {

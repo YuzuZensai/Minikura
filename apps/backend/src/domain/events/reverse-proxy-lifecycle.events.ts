@@ -1,6 +1,9 @@
-import { DomainEvent } from "./domain-event";
 import type { ReverseProxyType } from "../entities/enums";
-import type { ReverseProxyCreateInput, ReverseProxyUpdateInput } from "../repositories/reverse-proxy.repository";
+import type {
+  ReverseProxyCreateInput,
+  ReverseProxyUpdateInput,
+} from "../repositories/reverse-proxy.repository";
+import { DomainEvent } from "./domain-event";
 
 export class ReverseProxyCreatedEvent extends DomainEvent {
   constructor(

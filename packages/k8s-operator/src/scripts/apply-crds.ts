@@ -1,9 +1,9 @@
-import { KubernetesClient } from "../utils/k8s-client";
-import { registerRBACResources } from "../utils/rbac-registrar";
-import { setupCRDRegistration } from "../utils/crd-registrar";
-import { NAMESPACE } from "../config/constants";
 import { PrismaClient } from "@minikura/db";
 import { dotenvLoad } from "dotenv-mono";
+import { NAMESPACE } from "../config/constants";
+import { setupCRDRegistration } from "../utils/crd-registrar";
+import { KubernetesClient } from "../utils/k8s-client";
+import { registerRBACResources } from "../utils/rbac-registrar";
 
 dotenvLoad();
 

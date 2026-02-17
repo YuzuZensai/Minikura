@@ -1,7 +1,7 @@
-import * as k8s from "@kubernetes/client-node";
+import { getErrorMessage } from "@minikura/shared/errors";
 import { Elysia } from "elysia";
-import { getErrorMessage } from "../lib/errors";
-import { K8sService } from "../services/k8s";
+import { k8sService } from "../application/di-container";
+import { logger } from "../infrastructure/logger";
 
 type TerminalWsData = {
   query?: Record<string, string>;
@@ -32,7 +32,7 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
     const shell = ws.data.query?.shell || "/bin/sh";
     const mode = ws.data.query?.mode || "shell";
 
-    console.log(
+    logger.debug(
       `Opening terminal for pod: ${podName}, container: ${container}, shell: ${shell}, mode: ${mode}`
     );
 
@@ -48,7 +48,6 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
     }
 
     try {
-      const k8sService = K8sService.getInstance();
       if (!k8sService.isInitialized()) {
         ws.send(
           JSON.stringify({
@@ -94,7 +93,7 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
         .replace("https://", "wss://")
         .replace("http://", "ws://");
 
-      console.log(`Connecting to Kubernetes: ${wsUrl}`);
+      logger.debug(`Connecting to Kubernetes: ${wsUrl}`);
 
       const headers: Record<string, string> = {
         Connection: "Upgrade",
@@ -107,10 +106,10 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
       };
 
       if (user?.token) {
-        headers["Authorization"] = `Bearer ${user.token}`;
+        headers.Authorization = `Bearer ${user.token}`;
       } else if (user?.username && user?.password) {
         const auth = Buffer.from(`${user.username}:${user.password}`).toString("base64");
-        headers["Authorization"] = `Basic ${auth}`;
+        headers.Authorization = `Basic ${auth}`;
       }
 
       const tlsOptions: BunTlsOptions = {
@@ -132,7 +131,7 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
       ws.data.k8sWs = k8sWs;
 
       k8sWs.onopen = async () => {
-        console.log(`Connected to Kubernetes ${isAttach ? "attach" : "exec"}`);
+        logger.debug(`Connected to Kubernetes ${isAttach ? "attach" : "exec"}`);
 
         if (isAttach) {
           try {
@@ -149,7 +148,7 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
                 ws.send(
                   JSON.stringify({
                     type: "output",
-                    data: line + "\r\n",
+                    data: `${line}\r\n`,
                   })
                 );
               }
@@ -162,7 +161,7 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
               })
             );
           } catch (logError) {
-            console.error("Failed to fetch historical logs:", logError);
+            logger.error("Failed to fetch historical logs:", logError);
             ws.send(
               JSON.stringify({
                 type: "ready",
@@ -202,13 +201,18 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
             ws.send(JSON.stringify({ type: "output", data }));
             return;
           } else {
-            console.log("Unknown data type:", typeof data, "constructor:", data?.constructor?.name);
+            logger.debug(
+              "Unknown data type:",
+              typeof data,
+              "constructor:",
+              data?.constructor?.name
+            );
             buffer = new Uint8Array(data);
           }
 
           processBuffer(buffer);
         } catch (err) {
-          console.error("Error processing Kubernetes message:", err);
+          logger.error("Error processing Kubernetes message:", err);
         }
       };
 
@@ -223,13 +227,13 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
         if (channel === 1 || channel === 2) {
           ws.send(JSON.stringify({ type: "output", data: message }));
         } else if (channel === 3) {
-          console.error("Kubernetes error channel:", message);
+          logger.error("Kubernetes error channel:", message);
           ws.send(JSON.stringify({ type: "error", data: message }));
         }
       }
 
       k8sWs.onerror = (error: Event) => {
-        console.error("Kubernetes WebSocket error:", error);
+        logger.error("Kubernetes WebSocket error:", error);
         const message = getErrorMessage(error);
         ws.send(
           JSON.stringify({
@@ -240,7 +244,7 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
       };
 
       k8sWs.onclose = (event: CloseEvent) => {
-        console.log(`Kubernetes WebSocket closed: ${event.code} ${event.reason}`);
+        logger.debug(`Kubernetes WebSocket closed: ${event.code} ${event.reason}`);
         ws.send(
           JSON.stringify({
             type: "close",
@@ -250,9 +254,9 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
         ws.close();
       };
     } catch (error: unknown) {
-      console.error("Error setting up terminal:", error);
+      logger.error("Error setting up terminal:", error);
       if (error instanceof Error) {
-        console.error("Error stack:", error.stack);
+        logger.error("Error stack:", error.stack);
       }
       ws.send(
         JSON.stringify({
@@ -274,12 +278,12 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
       const k8sWs = ws.data.k8sWs;
 
       if (!k8sWs || k8sWs.readyState !== WebSocket.OPEN) {
-        console.error("Kubernetes WebSocket not ready, state:", k8sWs?.readyState);
+        logger.error("Kubernetes WebSocket not ready, state:", k8sWs?.readyState);
         return;
       }
 
       if (data.type === "input") {
-        console.log("Sending input to k8s:", data.data);
+        logger.debug("Sending input to k8s:", data.data);
         const encoder = new TextEncoder();
         const textData = encoder.encode(data.data);
         const buffer = new Uint8Array(1 + textData.length);
@@ -299,7 +303,7 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
         k8sWs.send(buffer.buffer);
       }
     } catch (error: unknown) {
-      console.error("Error handling terminal message:", error);
+      logger.error("Error handling terminal message:", error);
       ws.send(
         JSON.stringify({
           type: "error",
@@ -310,7 +314,7 @@ export const terminalRoutes = new Elysia({ prefix: "/terminal" }).ws("/exec", {
   },
 
   close: (ws: TerminalWs) => {
-    console.log("Client WebSocket closed");
+    logger.debug("Client WebSocket closed");
     const k8sWs = ws.data.k8sWs;
     if (k8sWs && k8sWs.readyState === WebSocket.OPEN) {
       k8sWs.close();
@@ -324,7 +328,7 @@ function parseTerminalMessage(message: unknown): TerminalMessage | null {
       const parsed = JSON.parse(message) as unknown;
       return isTerminalMessage(parsed) ? parsed : null;
     } catch {
-      console.error("Failed to parse message as JSON:", message);
+      logger.error("Failed to parse message as JSON:", message);
       return null;
     }
   }

@@ -41,7 +41,7 @@ export default function LoginPage() {
       } else {
         router.push("/dashboard");
       }
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to connect to server");
     } finally {
       setLoading(false);

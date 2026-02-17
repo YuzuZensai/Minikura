@@ -12,9 +12,11 @@ const userRepo = new PrismaUserRepository();
 const serverRepo = new PrismaServerRepository();
 const reverseProxyRepo = new PrismaReverseProxyRepository();
 const webSocketService = new WebSocketService();
+const k8sService = new K8sService();
 
 // Application layer
 export const userService = new UserService(userRepo);
-export const serverService = new ServerService(serverRepo, K8sService.getInstance());
+export const serverService = new ServerService(serverRepo, k8sService);
 export const reverseProxyService = new ReverseProxyService(reverseProxyRepo);
 export const wsService = webSocketService;
+export { k8sService };

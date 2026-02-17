@@ -1,6 +1,5 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import type {
   CustomResourceSummary,
   DeploymentInfo,
@@ -10,6 +9,7 @@ import type {
   PodInfo,
   StatefulSetInfo,
 } from "@minikura/api";
+import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
 
 export default function K8sResourcesPage() {
   const [status, setStatus] = useState<K8sStatus | null>(null);
@@ -64,50 +64,34 @@ export default function K8sResourcesPage() {
 
       if (statusRes.status === "fulfilled" && statusRes.value.data) {
         setStatus(statusRes.value.data as K8sStatus);
-      } else if (statusRes.status === "rejected") {
-        console.error("Failed to fetch status:", statusRes.reason);
       }
 
       if (podsRes.status === "fulfilled" && podsRes.value.data) {
         setPods(podsRes.value.data as PodInfo[]);
-      } else if (podsRes.status === "rejected") {
-        console.error("Failed to fetch pods:", podsRes.reason);
       }
 
       if (deploymentsRes.status === "fulfilled" && deploymentsRes.value.data) {
         setDeployments(deploymentsRes.value.data as DeploymentInfo[]);
-      } else if (deploymentsRes.status === "rejected") {
-        console.error("Failed to fetch deployments:", deploymentsRes.reason);
       }
 
       if (statefulSetsRes.status === "fulfilled" && statefulSetsRes.value.data) {
         setStatefulSets(statefulSetsRes.value.data as StatefulSetInfo[]);
-      } else if (statefulSetsRes.status === "rejected") {
-        console.error("Failed to fetch statefulsets:", statefulSetsRes.reason);
       }
 
       if (servicesRes.status === "fulfilled" && servicesRes.value.data) {
         setServices(servicesRes.value.data as K8sServiceSummary[]);
-      } else if (servicesRes.status === "rejected") {
-        console.error("Failed to fetch services:", servicesRes.reason);
       }
 
       if (configMapsRes.status === "fulfilled" && configMapsRes.value.data) {
         setConfigMaps(configMapsRes.value.data as K8sConfigMapSummary[]);
-      } else if (configMapsRes.status === "rejected") {
-        console.error("Failed to fetch configmaps:", configMapsRes.reason);
       }
 
       if (minecraftServersRes.status === "fulfilled" && minecraftServersRes.value.data) {
         setMinecraftServers(minecraftServersRes.value.data as CustomResourceSummary[]);
-      } else if (minecraftServersRes.status === "rejected") {
-        console.error("Failed to fetch minecraft servers:", minecraftServersRes.reason);
       }
 
       if (reverseProxyServersRes.status === "fulfilled" && reverseProxyServersRes.value.data) {
         setReverseProxyServers(reverseProxyServersRes.value.data as CustomResourceSummary[]);
-      } else if (reverseProxyServersRes.status === "rejected") {
-        console.error("Failed to fetch reverse proxy servers:", reverseProxyServersRes.reason);
       }
     } catch (err: unknown) {
       const errorMessage =

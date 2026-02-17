@@ -1,8 +1,4 @@
-import type {
-  CustomEnvironmentVariable,
-  Prisma,
-  ReverseProxyServer as PrismaReverseProxyServer,
-} from "../generated/prisma";
+import type { Prisma, ReverseProxyServer as PrismaReverseProxyServer } from "../generated/prisma";
 
 export type ReverseProxyWithEnvVars = Prisma.ReverseProxyServerGetPayload<{
   include: { env_variables: true };

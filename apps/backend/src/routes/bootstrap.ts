@@ -1,7 +1,8 @@
 import { prisma } from "@minikura/db";
+import { getErrorMessage } from "@minikura/shared/errors";
 import { Elysia } from "elysia";
-import { auth } from "../lib/auth";
-import { getErrorMessage } from "../lib/errors";
+import { logger } from "../infrastructure/logger";
+import { auth } from "../middleware/auth";
 import { bootstrapSchema } from "../schemas/bootstrap.schema";
 
 export const bootstrapRoutes = new Elysia({ prefix: "/bootstrap" })
@@ -37,14 +38,14 @@ export const bootstrapRoutes = new Elysia({ prefix: "/bootstrap" })
       });
 
       if (!result.user) {
-        console.error("No user in response:", result);
+        logger.error({ result }, "No user in bootstrap response");
         set.status = 500;
         return { message: "Failed to create user" };
       }
 
       return { success: true };
     } catch (err: unknown) {
-      console.error("Bootstrap setup error:", err);
+      logger.error({ err }, "Bootstrap setup failed");
       set.status = 500;
       return { message: getErrorMessage(err) };
     }

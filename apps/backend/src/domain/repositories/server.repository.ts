@@ -1,4 +1,4 @@
-import type { EnvVariable, Server, ServerWithEnvVars } from "@minikura/db";
+import type { EnvVariable, ServerWithEnvVars } from "@minikura/db";
 import type { z } from "zod";
 import type { createServerSchema, updateServerSchema } from "../../schemas/server.schema";
 

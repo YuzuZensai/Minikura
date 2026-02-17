@@ -1,8 +1,11 @@
 import type * as k8s from "@kubernetes/client-node";
 import type { ReverseProxyServerType } from "@minikura/db";
 import { LABEL_PREFIX } from "../config/constants";
-import { calculateJavaMemory, convertToK8sFormat } from "../utils/memory";
+import { DEFAULT_PROXY_MEMORY, JAVA_MEMORY_FACTOR } from "../config/resource-defaults";
 import type { ReverseProxyConfig } from "../types";
+import { logger } from "../utils/logger";
+import { calculateJavaMemory, convertToK8sFormat } from "../utils/memory";
+import { mapServiceType } from "../utils/service-type";
 
 export async function createReverseProxyServer(
   server: ReverseProxyConfig,
@@ -11,7 +14,10 @@ export async function createReverseProxyServer(
   _networkingApi: k8s.NetworkingV1Api,
   namespace: string
 ): Promise<void> {
-  console.log(`Creating reverse proxy server ${server.id} in namespace '${namespace}'`);
+  logger.debug(
+    { proxyId: server.id, proxyType: server.type, namespace },
+    "Creating reverse proxy server"
+  );
 
   const serverType = server.type.toLowerCase();
   const serverName = `${serverType}-${server.id}`;
@@ -35,11 +41,15 @@ export async function createReverseProxyServer(
 
   try {
     await coreApi.createNamespacedConfigMap({ namespace, body: configMap });
-    console.log(`Created ConfigMap for reverse proxy server ${server.id}`);
+    logger.debug({ proxyId: server.id, resource: "ConfigMap" }, "Created ConfigMap");
   } catch (error: any) {
-    if (error.response?.statusCode === 409) {
-      await coreApi.replaceNamespacedConfigMap({ name: `${serverName}-config`, namespace, body: configMap });
-      console.log(`Updated ConfigMap for reverse proxy server ${server.id}`);
+    if (error.code === 409) {
+      await coreApi.replaceNamespacedConfigMap({
+        name: `${serverName}-config`,
+        namespace,
+        body: configMap,
+      });
+      logger.debug({ proxyId: server.id, resource: "ConfigMap" }, "Updated ConfigMap");
     } else {
       throw error;
     }
@@ -69,17 +79,17 @@ export async function createReverseProxyServer(
           name: "minecraft",
         },
       ],
-      type: "LoadBalancer",
+      type: mapServiceType(server.service_type, "LoadBalancer"),
     },
   };
 
   try {
     await coreApi.createNamespacedService({ namespace, body: service });
-    console.log(`Created Service for reverse proxy server ${server.id}`);
+    logger.debug({ proxyId: server.id, resource: "Service" }, "Created Service");
   } catch (error: any) {
-    if (error.response?.statusCode === 409) {
+    if (error.code === 409) {
       await coreApi.replaceNamespacedService({ name: serverName, namespace, body: service });
-      console.log(`Updated Service for reverse proxy server ${server.id}`);
+      logger.debug({ proxyId: server.id, resource: "Service" }, "Updated Service");
     } else {
       throw error;
     }
@@ -134,7 +144,10 @@ export async function createReverseProxyServer(
                 },
                 {
                   name: "MEMORY",
-                  value: calculateJavaMemory(server.memory || "512M", 0.8),
+                  value: calculateJavaMemory(
+                    server.memory || DEFAULT_PROXY_MEMORY,
+                    JAVA_MEMORY_FACTOR
+                  ),
                 },
                 ...(server.env_variables || []).map((ev) => ({
                   name: ev.key,
@@ -150,11 +163,11 @@ export async function createReverseProxyServer(
               },
               resources: {
                 requests: {
-                  memory: convertToK8sFormat(server.memory || "512M"),
+                  memory: convertToK8sFormat(server.memory || DEFAULT_PROXY_MEMORY),
                   cpu: "250m",
                 },
                 limits: {
-                  memory: convertToK8sFormat(server.memory || "512M"),
+                  memory: convertToK8sFormat(server.memory || DEFAULT_PROXY_MEMORY),
                   cpu: "500m",
                 },
               },
@@ -167,11 +180,11 @@ export async function createReverseProxyServer(
 
   try {
     await appsApi.createNamespacedDeployment({ namespace, body: deployment });
-    console.log(`Created Deployment for reverse proxy server ${server.id}`);
+    logger.debug({ proxyId: server.id, resource: "Deployment" }, "Created Deployment");
   } catch (error: any) {
-    if (error.response?.statusCode === 409) {
+    if (error.code === 409) {
       await appsApi.replaceNamespacedDeployment({ name: serverName, namespace, body: deployment });
-      console.log(`Updated Deployment for reverse proxy server ${server.id}`);
+      logger.debug({ proxyId: server.id, resource: "Deployment" }, "Updated Deployment");
     } else {
       throw error;
     }
@@ -190,28 +203,28 @@ export async function deleteReverseProxyServer(
 
   try {
     await appsApi.deleteNamespacedDeployment({ name, namespace });
-    console.log(`Deleted Deployment for reverse proxy server ${proxyId}`);
+    logger.debug({ proxyId, resource: "Deployment" }, "Deleted Deployment");
   } catch (error: any) {
     if (error.response?.statusCode !== 404) {
-      console.error(`Error deleting Deployment for reverse proxy server ${proxyId}:`, error);
+      logger.error({ err: error, proxyId, resource: "Deployment" }, "Failed to delete Deployment");
     }
   }
 
   try {
     await coreApi.deleteNamespacedService({ name, namespace });
-    console.log(`Deleted Service for reverse proxy server ${proxyId}`);
+    logger.debug({ proxyId, resource: "Service" }, "Deleted Service");
   } catch (error: any) {
     if (error.response?.statusCode !== 404) {
-      console.error(`Error deleting Service for reverse proxy server ${proxyId}:`, error);
+      logger.error({ err: error, proxyId, resource: "Service" }, "Failed to delete Service");
     }
   }
 
   try {
     await coreApi.deleteNamespacedConfigMap({ name: `${name}-config`, namespace });
-    console.log(`Deleted ConfigMap for reverse proxy server ${proxyId}`);
+    logger.debug({ proxyId, resource: "ConfigMap" }, "Deleted ConfigMap");
   } catch (error: any) {
     if (error.response?.statusCode !== 404) {
-      console.error(`Error deleting ConfigMap for reverse proxy server ${proxyId}:`, error);
+      logger.error({ err: error, proxyId, resource: "ConfigMap" }, "Failed to delete ConfigMap");
     }
   }
 }

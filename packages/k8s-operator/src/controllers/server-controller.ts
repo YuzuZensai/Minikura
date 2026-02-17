@@ -1,8 +1,7 @@
-import { type PrismaClient, ServerType } from "@minikura/db";
-import type { Server, CustomEnvironmentVariable } from "@minikura/db";
-import { BaseController } from "./base-controller";
-import type { ServerConfig } from "../types";
+import type { CustomEnvironmentVariable, Server } from "@minikura/db";
 import { createServer, deleteServer } from "../resources/server";
+import type { ServerConfig } from "../types";
+import { BaseController } from "./base-controller";
 
 type ServerWithEnvVars = Server & {
   env_variables: CustomEnvironmentVariable[];
@@ -10,10 +9,6 @@ type ServerWithEnvVars = Server & {
 
 export class ServerController extends BaseController {
   private deployedServers = new Map<string, ServerWithEnvVars>();
-
-  constructor(prisma: PrismaClient, namespace: string) {
-    super(prisma, namespace);
-  }
 
   protected getControllerName(): string {
     return "ServerController";
@@ -33,25 +28,31 @@ export class ServerController extends BaseController {
 
       const currentServerIds = new Set(servers.map((server) => server.id));
 
-      // Delete servers that are no longer in the database
       for (const [serverId, server] of this.deployedServers.entries()) {
         if (!currentServerIds.has(serverId)) {
-          console.log(
-            `Server ${server.id} (${serverId}) has been removed from the database, deleting from Kubernetes...`
+          this.logger.info(
+            { serverId, serverName: server.id },
+            "Server removed from database, deleting K8s resources"
           );
           await deleteServer(serverId, appsApi, coreApi, this.namespace);
           this.deployedServers.delete(serverId);
         }
       }
 
-      // Create or update servers that are in the database
       for (const server of servers) {
         const deployedServer = this.deployedServers.get(server.id);
 
-        // If server doesn't exist yet or has been updated
         if (!deployedServer || this.hasServerChanged(deployedServer, server)) {
-          console.log(
-            `${!deployedServer ? "Creating" : "Updating"} server ${server.id} (${server.id}) in Kubernetes...`
+          const action = !deployedServer ? "Creating" : "Updating";
+          this.logger.info(
+            {
+              serverId: server.id,
+              serverType: server.type,
+              action: action.toLowerCase(),
+              memory: server.memory,
+              port: server.listen_port,
+            },
+            `${action} Minecraft server in Kubernetes`
           );
 
           const serverConfig: ServerConfig = {
@@ -61,6 +62,7 @@ export class ServerController extends BaseController {
             description: server.description,
             listen_port: server.listen_port,
             memory: server.memory,
+            service_type: server.service_type,
             env_variables: server.env_variables?.map((ev) => ({
               key: ev.key,
               value: ev.value,
@@ -69,33 +71,29 @@ export class ServerController extends BaseController {
 
           await createServer(serverConfig, appsApi, coreApi, networkingApi, this.namespace);
 
-          // Update cache
           this.deployedServers.set(server.id, { ...server });
         }
       }
     } catch (error) {
-      console.error("Error syncing servers:", error);
+      this.logger.error({ err: error }, "Failed to sync servers to Kubernetes");
       throw error;
     }
   }
 
   private hasServerChanged(oldServer: ServerWithEnvVars, newServer: ServerWithEnvVars): boolean {
-    // Check basic properties
     const basicPropsChanged =
       oldServer.type !== newServer.type ||
       oldServer.listen_port !== newServer.listen_port ||
-      oldServer.description !== newServer.description;
+      oldServer.description !== newServer.description ||
+      oldServer.service_type !== newServer.service_type;
 
     if (basicPropsChanged) return true;
 
-    // Check if environment variables have changed
     const oldEnvVars = oldServer.env_variables || [];
     const newEnvVars = newServer.env_variables || [];
 
-    // Check if the number of env vars has changed
     if (oldEnvVars.length !== newEnvVars.length) return true;
 
-    // Check if any of the existing env vars have changed
     for (const newEnv of newEnvVars) {
       const oldEnv = oldEnvVars.find((e) => e.key === newEnv.key);
       if (!oldEnv || oldEnv.value !== newEnv.value) {

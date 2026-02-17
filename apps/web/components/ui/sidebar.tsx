@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -82,7 +82,7 @@ function SidebarProvider({
     } else {
       setOpen((open) => !open);
     }
-  }, [setOpen, setOpenMobile]);
+  }, [setOpen]);
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -107,7 +107,7 @@ function SidebarProvider({
       setOpenMobile,
       toggleSidebar,
     }),
-    [state, open, setOpen, openMobile, setOpenMobile, toggleSidebar]
+    [state, open, setOpen, openMobile, toggleSidebar]
   );
 
   return (

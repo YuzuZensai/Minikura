@@ -1,8 +1,11 @@
 import type * as k8s from "@kubernetes/client-node";
 import { ServerType } from "@minikura/db";
 import { LABEL_PREFIX } from "../config/constants";
+import { DEFAULT_SERVER_MEMORY, JAVA_MEMORY_FACTOR } from "../config/resource-defaults";
 import type { ServerConfig } from "../types";
+import { logger } from "../utils/logger";
 import { calculateJavaMemory, convertToK8sFormat } from "../utils/memory";
+import { mapServiceType } from "../utils/service-type";
 
 export async function createServer(
   server: ServerConfig,
@@ -33,15 +36,15 @@ export async function createServer(
 
   try {
     await coreApi.createNamespacedConfigMap({ namespace, body: configMap });
-    console.log(`Created ConfigMap for server ${server.id}`);
+    logger.debug({ serverId: server.id, resource: "ConfigMap" }, "Created ConfigMap");
   } catch (err: any) {
-    if (err.response?.statusCode === 409) {
+    if (err.code === 409) {
       await coreApi.replaceNamespacedConfigMap({
         name: `${serverName}-config`,
         namespace,
         body: configMap,
       });
-      console.log(`Updated ConfigMap for server ${server.id}`);
+      logger.debug({ serverId: server.id, resource: "ConfigMap" }, "Updated ConfigMap");
     } else {
       throw err;
     }
@@ -71,17 +74,20 @@ export async function createServer(
           name: "minecraft",
         },
       ],
-      type: "ClusterIP",
+      type: mapServiceType(server.service_type),
     },
   };
 
   try {
     await coreApi.createNamespacedService({ namespace, body: service });
-    console.log(`Created Service for server ${server.id}`);
+    logger.debug(
+      { serverId: server.id, resource: "Service", port: server.listen_port },
+      "Created Service"
+    );
   } catch (err: any) {
-    if (err.response?.statusCode === 409) {
+    if (err.code === 409) {
       await coreApi.replaceNamespacedService({ name: serverName, namespace, body: service });
-      console.log(`Updated Service for server ${server.id}`);
+      logger.debug({ serverId: server.id, resource: "Service" }, "Updated Service");
     } else {
       throw err;
     }
@@ -149,7 +155,10 @@ async function createDeployment(
                 },
                 {
                   name: "MEMORY",
-                  value: calculateJavaMemory(server.memory || "1G", 0.8),
+                  value: calculateJavaMemory(
+                    server.memory || DEFAULT_SERVER_MEMORY,
+                    JAVA_MEMORY_FACTOR
+                  ),
                 },
                 {
                   name: "OPS",
@@ -183,11 +192,11 @@ async function createDeployment(
               },
               resources: {
                 requests: {
-                  memory: convertToK8sFormat(server.memory || "1G"),
+                  memory: convertToK8sFormat(server.memory || DEFAULT_SERVER_MEMORY),
                   cpu: "250m",
                 },
                 limits: {
-                  memory: convertToK8sFormat(server.memory || "1G"),
+                  memory: convertToK8sFormat(server.memory || DEFAULT_SERVER_MEMORY),
                   cpu: "500m",
                 },
               },
@@ -208,11 +217,11 @@ async function createDeployment(
 
   try {
     await appsApi.createNamespacedDeployment({ namespace, body: deployment });
-    console.log(`Created Deployment for server ${server.id}`);
+    logger.debug({ serverId: server.id, resource: "Deployment" }, "Created Deployment");
   } catch (err: any) {
-    if (err.response?.statusCode === 409) {
+    if (err.code === 409) {
       await appsApi.replaceNamespacedDeployment({ name: serverName, namespace, body: deployment });
-      console.log(`Updated Deployment for server ${server.id}`);
+      logger.debug({ serverId: server.id, resource: "Deployment" }, "Updated Deployment");
     } else {
       throw err;
     }
@@ -275,7 +284,10 @@ async function createStatefulSet(
                 },
                 {
                   name: "MEMORY",
-                  value: calculateJavaMemory(server.memory || "1G", 0.8),
+                  value: calculateJavaMemory(
+                    server.memory || DEFAULT_SERVER_MEMORY,
+                    JAVA_MEMORY_FACTOR
+                  ),
                 },
                 {
                   name: "OPS",
@@ -353,15 +365,15 @@ async function createStatefulSet(
 
   try {
     await appsApi.createNamespacedStatefulSet({ namespace, body: statefulSet });
-    console.log(`Created StatefulSet for server ${server.id}`);
+    logger.debug({ serverId: server.id, resource: "StatefulSet" }, "Created StatefulSet");
   } catch (err: any) {
-    if (err.response?.statusCode === 409) {
+    if (err.code === 409) {
       await appsApi.replaceNamespacedStatefulSet({
         name: serverName,
         namespace,
         body: statefulSet,
       });
-      console.log(`Updated StatefulSet for server ${server.id}`);
+      logger.debug({ serverId: server.id, resource: "StatefulSet" }, "Updated StatefulSet");
     } else {
       throw err;
     }
@@ -378,37 +390,37 @@ export async function deleteServer(
 
   try {
     await appsApi.deleteNamespacedDeployment({ name: serverName, namespace });
-    console.log(`Deleted Deployment for server ${serverName}`);
+    logger.debug({ serverName, resource: "Deployment" }, "Deleted Deployment");
   } catch (err: any) {
     if (err.response?.statusCode !== 404) {
-      console.error(`Error deleting Deployment for server ${serverName}:`, err);
+      logger.error({ err, serverName, resource: "Deployment" }, "Failed to delete Deployment");
     }
   }
 
   try {
     await appsApi.deleteNamespacedStatefulSet({ name: serverName, namespace });
-    console.log(`Deleted StatefulSet for server ${serverName}`);
+    logger.debug({ serverName, resource: "StatefulSet" }, "Deleted StatefulSet");
   } catch (err: any) {
     if (err.response?.statusCode !== 404) {
-      console.error(`Error deleting StatefulSet for server ${serverName}:`, err);
+      logger.error({ err, serverName, resource: "StatefulSet" }, "Failed to delete StatefulSet");
     }
   }
 
   try {
     await coreApi.deleteNamespacedService({ name: serverName, namespace });
-    console.log(`Deleted Service for server ${serverName}`);
+    logger.debug({ serverName, resource: "Service" }, "Deleted Service");
   } catch (err: any) {
     if (err.response?.statusCode !== 404) {
-      console.error(`Error deleting Service for server ${serverName}:`, err);
+      logger.error({ err, serverName, resource: "Service" }, "Failed to delete Service");
     }
   }
 
   try {
     await coreApi.deleteNamespacedConfigMap({ name: `${serverName}-config`, namespace });
-    console.log(`Deleted ConfigMap for server ${serverName}`);
+    logger.debug({ serverName, resource: "ConfigMap" }, "Deleted ConfigMap");
   } catch (err: any) {
     if (err.response?.statusCode !== 404) {
-      console.error(`Error deleting ConfigMap for server ${serverName}:`, err);
+      logger.error({ err, serverName, resource: "ConfigMap" }, "Failed to delete ConfigMap");
     }
   }
 }

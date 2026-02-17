@@ -1,9 +1,7 @@
 import type {
-  ServerType,
-  ReverseProxyServerType,
-  Server as PrismaServer,
-  ReverseProxyServer as PrismaReverseProxyServer,
   CustomEnvironmentVariable,
+  ReverseProxyServer as PrismaReverseProxyServer,
+  Server as PrismaServer,
 } from "@minikura/db";
 
 // Base interface
@@ -21,7 +19,7 @@ export interface CustomResource {
 
 export type ServerConfig = Pick<
   PrismaServer,
-  "id" | "description" | "type" | "listen_port" | "memory"
+  "id" | "description" | "type" | "listen_port" | "memory" | "service_type"
 > & {
   apiKey: string;
   env_variables?: Array<Pick<CustomEnvironmentVariable, "key" | "value">>;
@@ -51,7 +49,14 @@ export interface MinecraftServerCRD extends CustomResource {
 
 export type ReverseProxyConfig = Pick<
   PrismaReverseProxyServer,
-  "id" | "description" | "external_address" | "external_port" | "listen_port" | "type" | "memory"
+  | "id"
+  | "description"
+  | "external_address"
+  | "external_port"
+  | "listen_port"
+  | "type"
+  | "memory"
+  | "service_type"
 > & {
   apiKey: string;
   env_variables?: Array<Pick<CustomEnvironmentVariable, "key" | "value">>;

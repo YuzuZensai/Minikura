@@ -1,5 +1,6 @@
 import * as k8s from "@kubernetes/client-node";
-import { SKIP_TLS_VERIFY, NAMESPACE } from "../config/constants";
+import { buildKubeConfig } from "@minikura/shared/kube-auth";
+import { logger } from "./logger";
 
 export class KubernetesClient {
   private static instance: KubernetesClient;
@@ -11,13 +12,7 @@ export class KubernetesClient {
   private apiExtensionsApi!: k8s.ApiextensionsV1Api;
 
   private constructor() {
-    if (SKIP_TLS_VERIFY) {
-      console.log("Disabling TLS certificate validation");
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-    }
-
-    this.kc = new k8s.KubeConfig();
-    this.setupConfig();
+    this.kc = buildKubeConfig();
     this.initializeClients();
   }
 
@@ -26,34 +21,6 @@ export class KubernetesClient {
       KubernetesClient.instance = new KubernetesClient();
     }
     return KubernetesClient.instance;
-  }
-
-  private setupConfig(): void {
-    try {
-      this.kc.loadFromDefault();
-      console.log("Loaded Kubernetes config from default location");
-    } catch (err) {
-      console.warn("Failed to load Kubernetes config from default location:", err);
-    }
-
-    // Running in a cluster, try to load in-cluster config
-    if (!this.kc.getCurrentContext()) {
-      try {
-        this.kc.loadFromCluster();
-        console.log("Loaded Kubernetes config from cluster");
-      } catch (err) {
-        console.warn("Failed to load Kubernetes config from cluster:", err);
-      }
-    }
-
-    if (!this.kc.getCurrentContext()) {
-      throw new Error("Failed to setup Kubernetes client - no valid configuration found");
-    }
-
-    const currentCluster = this.kc.getCurrentCluster();
-    if (currentCluster) {
-      console.log(`Connecting to Kubernetes server: ${currentCluster.server}`);
-    }
   }
 
   private initializeClients(): void {
@@ -89,12 +56,15 @@ export class KubernetesClient {
   }
 
   async handleApiError(error: any, context: string): Promise<never> {
-    console.error(`Kubernetes API error (${context}):`, error?.message || error);
-
-    if (error?.response) {
-      console.error(`Response status: ${error.response.statusCode}`);
-      console.error(`Response body: ${JSON.stringify(error.response.body)}`);
-    }
+    logger.error(
+      {
+        context,
+        message: error?.message,
+        statusCode: error?.response?.statusCode,
+        body: error?.response?.body,
+      },
+      "Kubernetes API error"
+    );
 
     throw error;
   }

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { ServerForm, type ServerFormData, type ServerType } from "@/components/server-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
 import { getReverseProxyApi } from "@/lib/api-helpers";
 
 export default function EditServerPage() {
@@ -48,8 +48,7 @@ export default function EditServerPage() {
 
         setError("Server not found");
         setLoading(false);
-      } catch (err) {
-        console.error("Failed to fetch server:", err);
+      } catch (_err) {
         setError("Failed to load server data");
         setLoading(false);
       }
@@ -81,11 +80,12 @@ export default function EditServerPage() {
     return "survival";
   };
 
-  const toServerType = (value?: string | null): ServerType => {
-    if (value === "VANILLA" || value === "CUSTOM") {
-      return value;
-    }
-    return "PAPER";
+  const toDifficultyUppercase = (value: string): "PEACEFUL" | "EASY" | "NORMAL" | "HARD" => {
+    return value.toUpperCase() as "PEACEFUL" | "EASY" | "NORMAL" | "HARD";
+  };
+
+  const toModeUppercase = (value: string): "SURVIVAL" | "CREATIVE" | "ADVENTURE" | "SPECTATOR" => {
+    return value.toUpperCase() as "SURVIVAL" | "CREATIVE" | "ADVENTURE" | "SPECTATOR";
   };
 
   const parseEnvVariables = (envVars?: Array<{ key: string; value: string }>) => {
@@ -205,8 +205,8 @@ export default function EditServerPage() {
       jvm_opts: data.jvmOpts || undefined,
       use_aikar_flags: data.useAikarFlags || undefined,
       use_meowice_flags: data.useMeowiceFlags || undefined,
-      difficulty: data.difficulty,
-      game_mode: data.mode,
+      difficulty: toDifficultyUppercase(data.difficulty),
+      game_mode: toModeUppercase(data.mode),
       max_players: data.maxPlayers ? Number(data.maxPlayers) : undefined,
       pvp: data.pvp,
       online_mode: data.onlineMode,

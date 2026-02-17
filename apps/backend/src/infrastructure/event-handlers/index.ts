@@ -1,4 +1,6 @@
 import "./server-event.handler";
 import "./user-event.handler";
 
-console.log("[EventBus] All event handlers registered");
+import { logger } from "../logger";
+
+logger.debug("All domain event handlers registered");

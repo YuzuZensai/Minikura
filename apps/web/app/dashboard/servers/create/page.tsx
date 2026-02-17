@@ -6,7 +6,15 @@ import { useRouter } from "next/navigation";
 import { ServerForm, type ServerFormData } from "@/components/server-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
+
+const toDifficultyUppercase = (value: string): "PEACEFUL" | "EASY" | "NORMAL" | "HARD" => {
+  return value.toUpperCase() as "PEACEFUL" | "EASY" | "NORMAL" | "HARD";
+};
+
+const toModeUppercase = (value: string): "SURVIVAL" | "CREATIVE" | "ADVENTURE" | "SPECTATOR" => {
+  return value.toUpperCase() as "SURVIVAL" | "CREATIVE" | "ADVENTURE" | "SPECTATOR";
+};
 
 export default function CreateServerPage() {
   const router = useRouter();
@@ -121,8 +129,8 @@ export default function CreateServerPage() {
       jvm_opts: data.jvmOpts || undefined,
       use_aikar_flags: data.useAikarFlags || undefined,
       use_meowice_flags: data.useMeowiceFlags || undefined,
-      difficulty: data.difficulty,
-      game_mode: data.mode,
+      difficulty: toDifficultyUppercase(data.difficulty),
+      game_mode: toModeUppercase(data.mode),
       max_players: data.maxPlayers ? Number(data.maxPlayers) : undefined,
       pvp: data.pvp,
       online_mode: data.onlineMode,

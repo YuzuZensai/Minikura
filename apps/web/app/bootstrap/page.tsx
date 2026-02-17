@@ -4,16 +4,10 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
 
 export default function BootstrapPage() {
   const router = useRouter();
@@ -29,8 +23,7 @@ export default function BootstrapPage() {
         if (data && !data.needsSetup) {
           router.replace("/login");
         }
-      } catch (err) {
-        console.error("Failed to check bootstrap status:", err);
+      } catch (_err) {
       } finally {
         setCheckingStatus(false);
       }
@@ -77,7 +70,7 @@ export default function BootstrapPage() {
       } else {
         setError("Failed to create admin user");
       }
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to connect to server");
     } finally {
       setLoading(false);
@@ -96,9 +89,7 @@ export default function BootstrapPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Welcome to Minikura
-          </CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Welcome to Minikura</CardTitle>
           <CardDescription className="text-center">
             Create your admin account to get started
           </CardDescription>
@@ -107,13 +98,7 @@ export default function BootstrapPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                name="name"
-                placeholder="John Doe"
-                required
-                autoFocus
-              />
+              <Input id="name" name="name" placeholder="John Doe" required autoFocus />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -147,9 +132,7 @@ export default function BootstrapPage() {
                 required
               />
             </div>
-            {error && (
-              <div className="text-sm text-red-600 text-center">{error}</div>
-            )}
+            {error && <div className="text-sm text-red-600 text-center">{error}</div>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Creating..." : "Create Admin Account"}
             </Button>

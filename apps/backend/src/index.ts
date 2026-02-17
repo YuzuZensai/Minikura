@@ -3,12 +3,14 @@ import { dotenvLoad } from "dotenv-mono";
 dotenvLoad();
 
 import { Elysia } from "elysia";
-import { auth } from "./lib/auth";
-import { authPlugin } from "./lib/auth-plugin";
-import { errorHandler } from "./lib/error-handler";
+import { node } from "@elysiajs/node";
+import { logger } from "./infrastructure/logger";
+import { auth } from "./middleware/auth";
+import { authPlugin } from "./middleware/auth-plugin";
+import { errorHandler } from "./middleware/error-handler";
 import { bootstrapRoutes } from "./routes/bootstrap";
 import { k8sRoutes } from "./routes/k8s";
-import { reverseProxyRoutes } from "./routes/reverse-proxy.routes";
+import { reverseProxyRoutes } from "./routes/reverse-proxy";
 import { serverRoutes } from "./routes/servers";
 import { terminalRoutes } from "./routes/terminal";
 import { userRoutes } from "./routes/users";
@@ -16,7 +18,7 @@ import { userRoutes } from "./routes/users";
 // Register event handlers
 import "./infrastructure/event-handlers";
 
-const app = new Elysia()
+const app = new Elysia({ adapter: node() })
   .use(errorHandler)
   .onRequest(({ set }) => {
     const origin = process.env.WEB_URL || "http://localhost:3001";
@@ -37,5 +39,5 @@ const app = new Elysia()
 export type App = typeof app;
 
 app.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
+  logger.info({ port: 3000, url: "http://localhost:3000" }, "Backend API server started");
 });

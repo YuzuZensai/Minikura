@@ -1,18 +1,14 @@
 import { dotenvLoad } from "dotenv-mono";
-const dotenv = dotenvLoad();
 
-export const API_GROUP = "minikura.kirameki.cafe";
+const _dotenv = dotenvLoad();
+
+export { API_GROUP, LABEL_PREFIX } from "@minikura/api";
 export const API_VERSION = "v1alpha1";
 
 export const KUBERNETES_NAMESPACE_ENV = process.env.KUBERNETES_NAMESPACE;
 export const NAMESPACE = process.env.KUBERNETES_NAMESPACE || "minikura";
 
 export const ENABLE_CRD_REFLECTION = process.env.ENABLE_CRD_REFLECTION === "true";
-export const SKIP_TLS_VERIFY = process.env.KUBERNETES_SKIP_TLS_VERIFY === "true";
-
-if (SKIP_TLS_VERIFY) {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-}
 
 // Resource types
 export const RESOURCE_TYPES = {
@@ -29,9 +25,6 @@ export const RESOURCE_TYPES = {
     shortNames: ["rps"],
   },
 };
-
-// Kubernetes resource label prefixes
-export const LABEL_PREFIX = "minikura.kirameki.cafe";
 
 // Polling intervals (in milliseconds)
 export const SYNC_INTERVAL = 30 * 1000; // 30 seconds

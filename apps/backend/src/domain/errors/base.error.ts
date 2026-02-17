@@ -32,9 +32,7 @@ export class ConflictError extends DomainError {
   readonly statusCode = 409;
 
   constructor(resource: string, identifier?: string) {
-    super(
-      identifier ? `${resource} already exists: ${identifier}` : `${resource} already exists`
-    );
+    super(identifier ? `${resource} already exists: ${identifier}` : `${resource} already exists`);
   }
 }
 
@@ -59,17 +57,9 @@ export class ForbiddenError extends DomainError {
 export class ValidationError extends DomainError {
   readonly code = "VALIDATION_ERROR";
   readonly statusCode = 400;
-
-  constructor(message: string) {
-    super(message);
-  }
 }
 
 export class BusinessRuleError extends DomainError {
   readonly code = "BUSINESS_RULE_VIOLATION";
   readonly statusCode = 422;
-
-  constructor(message: string) {
-    super(message);
-  }
 }

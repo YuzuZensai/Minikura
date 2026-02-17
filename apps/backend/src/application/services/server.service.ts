@@ -1,5 +1,4 @@
-import type { EnvVariable, ServerWithEnvVars } from "@minikura/db";
-import { ConflictError, NotFoundError } from "../../domain/errors/base.error";
+import type { ServerWithEnvVars } from "@minikura/db";
 import {
   ServerCreatedEvent,
   ServerDeletedEvent,
@@ -10,71 +9,65 @@ import type {
   ServerRepository,
   ServerUpdateInput,
 } from "../../domain/repositories/server.repository";
-import { eventBus } from "../../infrastructure/event-bus";
 import type { K8sService } from "../../services/k8s";
+import type { IServerService } from "../interfaces/server.service.interface";
+import { BaseCrudService } from "./base-crud.service";
 
-export class ServerService {
+export class ServerService
+  extends BaseCrudService<
+    ServerWithEnvVars,
+    ServerCreateInput,
+    ServerUpdateInput,
+    ServerRepository,
+    {
+      created: typeof ServerCreatedEvent;
+      updated: typeof ServerUpdatedEvent;
+      deleted: typeof ServerDeletedEvent;
+    }
+  >
+  implements IServerService
+{
   constructor(
-    private serverRepo: ServerRepository,
-    private k8sService: K8sService,
-  ) {}
-
-  async getAllServers(omitSensitive = false): Promise<ServerWithEnvVars[]> {
-    return this.serverRepo.findAll(omitSensitive);
-  }
-
-  async getServerById(
-    id: string,
-    omitSensitive = false,
-  ): Promise<ServerWithEnvVars> {
-    const server = await this.serverRepo.findById(id, omitSensitive);
-    if (!server) {
-      throw new NotFoundError("Server", id);
-    }
-    return server;
-  }
-
-  async createServer(input: ServerCreateInput): Promise<ServerWithEnvVars> {
-    const existing = await this.serverRepo.exists(input.id);
-    if (existing) {
-      throw new ConflictError("Server", input.id);
-    }
-
-    const server = await this.serverRepo.create(input);
-    await eventBus.publish(
-      new ServerCreatedEvent(server.id, server.type, input),
+    serverRepo: ServerRepository,
+    private k8sService: K8sService
+  ) {
+    super(
+      serverRepo,
+      {
+        created: ServerCreatedEvent,
+        updated: ServerUpdatedEvent,
+        deleted: ServerDeletedEvent,
+      },
+      "Server"
     );
-    return server;
   }
 
-  async updateServer(
-    id: string,
-    input: ServerUpdateInput,
-  ): Promise<ServerWithEnvVars> {
-    const server = await this.serverRepo.update(id, input);
-    await eventBus.publish(new ServerUpdatedEvent(id, input));
-    return server;
+  protected getEntityType(input: ServerCreateInput) {
+    return input.type;
   }
 
-  async deleteServer(id: string): Promise<void> {
-    await this.serverRepo.delete(id);
-    await eventBus.publish(new ServerDeletedEvent(id));
+  protected getInputId(input: ServerCreateInput): string {
+    return input.id;
   }
 
-  async setEnvVariable(
-    serverId: string,
-    key: string,
-    value: string,
-  ): Promise<void> {
-    await this.serverRepo.setEnvVariable(serverId, key, value);
+  getAllServers(omitSensitive = false) {
+    return this.getAll(omitSensitive);
   }
 
-  async getEnvVariables(serverId: string): Promise<EnvVariable[]> {
-    return this.serverRepo.getEnvVariables(serverId);
+  getServerById(id: string, omitSensitive = false) {
+    return this.getById(id, omitSensitive);
   }
 
-  async deleteEnvVariable(serverId: string, key: string): Promise<void> {
-    await this.serverRepo.deleteEnvVariable(serverId, key);
+  createServer(input: ServerCreateInput) {
+    return this.create(input);
+  }
+
+  updateServer(id: string, input: ServerUpdateInput) {
+    return this.update(id, input);
+  }
+
+  deleteServer(id: string) {
+    return this.delete(id);
   }
 
   async getConnectionInfo(serverId: string) {

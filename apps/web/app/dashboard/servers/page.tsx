@@ -1,5 +1,6 @@
 "use client";
 
+import type { ConnectionInfo, NormalServer, PodInfo, ReverseProxyServer } from "@minikura/api";
 import {
   AlertCircle,
   Check,
@@ -25,15 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -42,14 +34,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { ConnectionInfo, NormalServer, PodInfo, ReverseProxyServer } from "@minikura/api";
+import { api } from "@/lib/api-client";
 import { getReverseProxyApi } from "@/lib/api-helpers";
-import { api } from "@/lib/api";
 
-// Server status component
 function ServerStatusCell({ serverId, type }: { serverId: string; type: "normal" | "proxy" }) {
   const [pods, setPods] = useState<PodInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,14 +47,13 @@ function ServerStatusCell({ serverId, type }: { serverId: string; type: "normal"
       try {
         const endpoint =
           type === "normal"
-            ? api.api.k8s["servers"]({ serverId }).pods.get
+            ? api.api.k8s.servers({ serverId }).pods.get
             : api.api.k8s["reverse-proxy"]({ serverId }).pods.get;
         const res = await endpoint();
         if (res.data) {
           setPods(res.data as PodInfo[]);
         }
-      } catch (error) {
-        console.error("Failed to fetch pods:", error);
+      } catch (_error) {
       } finally {
         setLoading(false);
       }
@@ -93,9 +80,7 @@ function ServerStatusCell({ serverId, type }: { serverId: string; type: "normal"
   }
 
   const allRunning = pods.every((pod) => pod.status === "Running");
-  const readyCount = pods.filter(
-    (pod) => pod.ready === "1/1" || pod.ready === "1/1" || pod.ready === "1/1"
-  ).length;
+  const readyCount = pods.filter((pod) => pod.ready === "1/1").length;
 
   return (
     <div className="flex items-center gap-2">
@@ -111,7 +96,6 @@ function ServerStatusCell({ serverId, type }: { serverId: string; type: "normal"
   );
 }
 
-// Connection info component
 function ConnectionInfoCell({ serverId, type }: { serverId: string; type: "normal" | "proxy" }) {
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,8 +113,7 @@ function ConnectionInfoCell({ serverId, type }: { serverId: string; type: "norma
         if (res.data) {
           setConnectionInfo(res.data as ConnectionInfo);
         }
-      } catch (error) {
-        console.error("Failed to fetch connection info:", error);
+      } catch (_error) {
       } finally {
         setLoading(false);
       }
@@ -213,8 +196,7 @@ export default function ServersPage() {
       if (proxyRes.data) {
         setReverseProxies(proxyRes.data as unknown as ReverseProxyServer[]);
       }
-    } catch (error) {
-      console.error("Failed to fetch servers:", error);
+    } catch (_error) {
     } finally {
       setLoading(false);
     }
@@ -236,9 +218,7 @@ export default function ServersPage() {
       }
       await fetchServers();
       setDeleteTarget(null);
-    } catch (error) {
-      console.error("Failed to delete server:", error);
-    }
+    } catch (_error) {}
   };
 
   if (loading) {
@@ -270,7 +250,6 @@ export default function ServersPage() {
         </Button>
       </div>
 
-      {/* Normal Servers */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -360,7 +339,6 @@ export default function ServersPage() {
         </CardContent>
       </Card>
 
-      {/* Reverse Proxy Servers */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -448,7 +426,6 @@ export default function ServersPage() {
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>

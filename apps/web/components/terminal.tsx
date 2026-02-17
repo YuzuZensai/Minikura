@@ -50,8 +50,7 @@ export function Terminal({
     const term = new XTerm({
       cursorBlink: true,
       fontSize: 14,
-      fontFamily:
-        'JetBrains Mono, Fira Code, Menlo, Monaco, "Courier New", monospace',
+      fontFamily: 'JetBrains Mono, Fira Code, Menlo, Monaco, "Courier New", monospace',
       fontWeight: "normal",
       fontWeightBold: "bold",
       letterSpacing: 0,
@@ -106,9 +105,7 @@ export function Terminal({
     try {
       const ligaturesAddon = new LigaturesAddon();
       term.loadAddon(ligaturesAddon);
-    } catch (e) {
-      console.warn("Ligatures addon not available:", e);
-    }
+    } catch (_e) {}
 
     fitAddon.fit();
 
@@ -120,10 +117,7 @@ export function Terminal({
       try {
         const webglAddon = new WebglAddon();
         term.loadAddon(webglAddon);
-        console.log("WebGL renderer loaded successfully");
-      } catch (e) {
-        console.warn("WebGL renderer not available, using canvas fallback:", e);
-      }
+      } catch (_e) {}
     }, 100);
 
     term.attachCustomKeyEventHandler((event) => {
@@ -141,10 +135,9 @@ export function Terminal({
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("WebSocket connected");
       setConnected(true);
       term.writeln(
-        `\r\n\x1b[1;32mConnecting to ${mode === "attach" ? "container" : "shell"}...\x1b[0m\r\n`,
+        `\r\n\x1b[1;32mConnecting to ${mode === "attach" ? "container" : "shell"}...\x1b[0m\r\n`
       );
 
       const { cols, rows } = term;
@@ -166,20 +159,16 @@ export function Terminal({
           term.writeln(`\r\n\x1b[1;33m${message.data}\x1b[0m\r\n`);
           setConnected(false);
         }
-      } catch (err) {
-        console.error("Error parsing WebSocket message:", err);
-      }
+      } catch (_err) {}
     };
 
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
+    ws.onerror = (_err) => {
       term.writeln("\r\n\x1b[1;31mWebSocket error\x1b[0m\r\n");
       setError("Connection error");
       setConnected(false);
     };
 
     ws.onclose = () => {
-      console.log("WebSocket closed");
       term.writeln("\r\n\x1b[1;33mConnection closed\x1b[0m\r\n");
       setConnected(false);
     };
@@ -220,9 +209,7 @@ export function Terminal({
           </div>
         )}
         {error && (
-          <div className="bg-red-500/20 text-red-500 text-xs px-2 py-1 rounded">
-            {error}
-          </div>
+          <div className="bg-red-500/20 text-red-500 text-xs px-2 py-1 rounded">{error}</div>
         )}
         <button
           type="button"

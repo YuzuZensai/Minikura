@@ -1,3 +1,5 @@
+import { logger } from "../infrastructure/logger";
+
 export type WebSocketClient = {
   send: (message: string) => void;
 };
@@ -14,14 +16,12 @@ export class WebSocketService implements IWebSocketService {
 
   addClient(client: WebSocketClient): void {
     this.clients.add(client);
-    console.log(`[WebSocket] Client connected (total: ${this.clients.size})`);
+    logger.debug({ totalClients: this.clients.size }, "WebSocket client connected");
   }
 
   removeClient(client: WebSocketClient): void {
     this.clients.delete(client);
-    console.log(
-      `[WebSocket] Client disconnected (total: ${this.clients.size})`,
-    );
+    logger.debug({ totalClients: this.clients.size }, "WebSocket client disconnected");
   }
 
   broadcast(action: string, serverType: string, serverId: string): void {
@@ -33,6 +33,7 @@ export class WebSocketService implements IWebSocketService {
       timestamp: new Date().toISOString(),
     });
 
+    // Send to all connected clients, removing any that fail
     let failedClients = 0;
     this.clients.forEach((client) => {
       try {
@@ -44,7 +45,7 @@ export class WebSocketService implements IWebSocketService {
     });
 
     if (failedClients > 0) {
-      console.log(`[WebSocket] Removed ${failedClients} failed clients`);
+      logger.warn({ failedClients }, "Removed failed WebSocket clients");
     }
   }
 

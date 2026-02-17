@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { z } from "zod";
 import { serverService, wsService } from "../application/di-container";
+import { requireAuth } from "../middleware/auth-guards";
 import { createServerSchema, updateServerSchema } from "../schemas/server.schema";
 import type { WebSocketClient } from "../services/websocket";
 
@@ -23,6 +24,7 @@ export const serverRoutes = new Elysia({ prefix: "/servers" })
     },
     message() {},
   })
+  .use(requireAuth)
   .get("/", async () => {
     return await serverService.getAllServers(false);
   })

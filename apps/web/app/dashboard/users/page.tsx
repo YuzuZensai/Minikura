@@ -2,7 +2,6 @@
 
 import { Ban, CheckCircle, Edit, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { getUserApi } from "@/lib/api-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +30,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
+import { getUserApi } from "@/lib/api-helpers";
 import { useSession } from "@/lib/auth-client";
 
 type User = {
@@ -59,8 +59,7 @@ export default function UsersPage() {
       if (data && typeof data === "object" && "users" in data) {
         setUsers(data.users as User[]);
       }
-    } catch (error) {
-      console.error("Failed to fetch users:", error);
+    } catch (_error) {
     } finally {
       setLoading(false);
     }
@@ -88,9 +87,7 @@ export default function UsersPage() {
         await fetchUsers();
         setEditingUser(null);
       }
-    } catch (error) {
-      console.error("Failed to update user:", error);
-    }
+    } catch (_error) {}
   };
 
   const handleSuspend = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -110,9 +107,7 @@ export default function UsersPage() {
         await fetchUsers();
         setSuspendingUser(null);
       }
-    } catch (error) {
-      console.error("Failed to suspend user:", error);
-    }
+    } catch (_error) {}
   };
 
   const handleUnsuspend = async (userId: string) => {
@@ -125,9 +120,7 @@ export default function UsersPage() {
       if (!error) {
         await fetchUsers();
       }
-    } catch (error) {
-      console.error("Failed to unsuspend user:", error);
-    }
+    } catch (_error) {}
   };
 
   const handleDelete = async () => {
@@ -140,9 +133,7 @@ export default function UsersPage() {
         await fetchUsers();
         setDeleteUser(null);
       }
-    } catch (error) {
-      console.error("Failed to delete user:", error);
-    }
+    } catch (_error) {}
   };
 
   const isUserSuspended = (user: User): boolean => {
@@ -252,7 +243,6 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
         <DialogContent>
           <DialogHeader>
@@ -288,7 +278,6 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Suspend Dialog */}
       <Dialog open={!!suspendingUser} onOpenChange={() => setSuspendingUser(null)}>
         <DialogContent>
           <DialogHeader>
@@ -324,7 +313,6 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Dialog */}
       <Dialog open={!!deleteUser} onOpenChange={() => setDeleteUser(null)}>
         <DialogContent>
           <DialogHeader>

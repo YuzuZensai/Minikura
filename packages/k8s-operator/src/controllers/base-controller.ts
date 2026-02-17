@@ -1,57 +1,53 @@
 import type { PrismaClient } from "@minikura/db";
-import { KubernetesClient } from "../utils/k8s-client";
+import type { Logger } from "pino";
 import { SYNC_INTERVAL } from "../config/constants";
+import { KubernetesClient } from "../utils/k8s-client";
+import { createLogger } from "../utils/logger";
 
 export abstract class BaseController {
   protected prisma: PrismaClient;
   protected k8sClient: KubernetesClient;
   protected namespace: string;
+  protected logger: Logger;
   private intervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor(prisma: PrismaClient, namespace: string) {
     this.prisma = prisma;
     this.k8sClient = KubernetesClient.getInstance();
     this.namespace = namespace;
+    this.logger = createLogger({ controller: this.getControllerName() });
   }
 
-  /**
-   * Start watching for changes in the database and syncing to Kubernetes
-   */
   public startWatching(): void {
-    console.log(`Starting to watch for changes in ${this.getControllerName()}...`);
+    this.logger.info(
+      { namespace: this.namespace, syncInterval: SYNC_INTERVAL },
+      "Starting controller watch loop"
+    );
 
-    // Initial sync
     this.syncResources().catch((err) => {
-      console.error(`Error during initial sync of ${this.getControllerName()}:`, err);
+      this.logger.error({ err }, "Error during initial resource synchronization");
     });
 
-    // Polling interval for changes
-    // TODO: Maybe there's a better way to do this
     this.intervalId = setInterval(() => {
       this.syncResources().catch((err) => {
-        console.error(`Error syncing ${this.getControllerName()}:`, err);
+        this.logger.error({ err }, "Error during periodic resource synchronization");
       });
     }, SYNC_INTERVAL);
+
+    this.logger.debug(
+      { intervalMs: SYNC_INTERVAL },
+      "Polling interval established for resource synchronization"
+    );
   }
 
-  /**
-   * Stop watching for changes
-   */
   public stopWatching(): void {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log(`Stopped watching for changes in ${this.getControllerName()}`);
+      this.logger.info("Controller watch loop stopped");
     }
   }
 
-  /**
-   * Get a name for this controller for logging purposes
-   */
   protected abstract getControllerName(): string;
-
-  /**
-   * Sync resources from database to Kubernetes
-   */
   protected abstract syncResources(): Promise<void>;
 }

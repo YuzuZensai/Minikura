@@ -1,20 +1,24 @@
 import { dotenvLoad } from "dotenv-mono";
-const dotenv = dotenvLoad();
 
-import { NAMESPACE, KUBERNETES_NAMESPACE_ENV, ENABLE_CRD_REFLECTION } from "./config/constants";
+const _dotenv = dotenvLoad();
+
 import { prisma } from "@minikura/db";
-import { KubernetesClient } from "./utils/k8s-client";
-import { ServerController } from "./controllers/server-controller";
+import { ENABLE_CRD_REFLECTION, NAMESPACE } from "./config/constants";
 import { ReverseProxyController } from "./controllers/reverse-proxy-controller";
+import { ServerController } from "./controllers/server-controller";
 import { setupCRDRegistration } from "./utils/crd-registrar";
+import { KubernetesClient } from "./utils/k8s-client";
+import { logger } from "./utils/logger";
 
 async function main() {
-  console.log("Starting Minikura Kubernetes Operator...");
-  console.log(`Using namespace: ${NAMESPACE}`);
+  logger.info(
+    { namespace: NAMESPACE, crdReflection: ENABLE_CRD_REFLECTION },
+    "Starting Minikura Kubernetes Operator"
+  );
 
   try {
     const k8sClient = KubernetesClient.getInstance();
-    console.log("Connected to Kubernetes cluster");
+    logger.info({ namespace: NAMESPACE }, "Successfully connected to Kubernetes cluster");
 
     const serverController = new ServerController(prisma, NAMESPACE);
     const reverseProxyController = new ReverseProxyController(prisma, NAMESPACE);
@@ -23,49 +27,55 @@ async function main() {
     reverseProxyController.startWatching();
 
     if (ENABLE_CRD_REFLECTION) {
-      console.log("CRD reflection enabled - will create CRDs to reflect database state");
+      logger.info("CRD reflection enabled - will create Custom Resources to mirror database state");
       try {
         await setupCRDRegistration(prisma, k8sClient, NAMESPACE);
+        logger.info("CRD registration completed successfully");
       } catch (error: any) {
-        console.error(`Failed to set up CRD registration: ${error.message}`);
-        if (error.response) {
-          console.error(`Response status: ${error.response.statusCode}`);
-          console.error(`Response body: ${JSON.stringify(error.response.body)}`);
-        }
-        console.error("Continuing operation without CRD reflection");
-        console.log(
-          "Kubernetes resources will still be created/updated, but CRD reflection is disabled"
+        logger.error(
+          {
+            err: error,
+            message: error.message,
+            statusCode: error.response?.statusCode,
+            body: error.response?.body,
+          },
+          "Failed to setup CRD registration, continuing without CRD reflection"
+        );
+        logger.warn(
+          "Kubernetes resources (Deployments, Services) will still be created, but Custom Resources will not be reflected"
         );
       }
     }
 
-    console.log("Minikura Kubernetes Operator is running");
+    logger.info("Minikura Kubernetes Operator is now running and watching for changes");
 
     process.on("SIGINT", gracefulShutdown);
     process.on("SIGTERM", gracefulShutdown);
 
     function gracefulShutdown() {
-      console.log("Shutting down operator gracefully...");
+      logger.info("Received shutdown signal, shutting down gracefully");
       serverController.stopWatching();
       reverseProxyController.stopWatching();
       prisma.$disconnect();
-      console.log("Resources released, exiting...");
+      logger.info("All resources released, exiting process");
       process.exit(0);
     }
   } catch (error: any) {
-    console.error(`Failed to start Minikura Kubernetes Operator: ${error.message}`);
-    if (error.response) {
-      console.error(`Response status: ${error.response.statusCode}`);
-      console.error(`Response body: ${JSON.stringify(error.response.body)}`);
-    }
-    if (error.stack) {
-      console.error(`Stack trace: ${error.stack}`);
-    }
+    logger.fatal(
+      {
+        err: error,
+        message: error.message,
+        statusCode: error.response?.statusCode,
+        body: error.response?.body,
+        stack: error.stack,
+      },
+      "Failed to start Minikura Kubernetes Operator"
+    );
     process.exit(1);
   }
 }
 
 main().catch((error) => {
-  console.error("Unhandled error:", error);
+  logger.fatal({ err: error }, "Unhandled error in main process");
   process.exit(1);
 });

@@ -20,7 +20,7 @@ services:
       - "6443:6443"   # k3s API
       - "25565:25565" # minecraft
       - "25577:25577" # velocity
-      - "30000:32767" # NodePort range
+      - "30000-32767:30000-32767" # NodePort range
     volumes:
       - "../:/workspace"
       - "/sys/fs/cgroup:/sys/fs/cgroup:rw"
@@ -32,8 +32,9 @@ services:
     environment:
       - KUBECONFIG=/home/dev/.kube/config
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/minikura?sslmode=disable
+      - WEB_URL=http://localhost:3001
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
       - KUBERNETES_NAMESPACE=minikura
-      - KUBERNETES_SKIP_TLS_VERIFY=true
       - ENABLE_CRD_REFLECTION=true
 
   db:

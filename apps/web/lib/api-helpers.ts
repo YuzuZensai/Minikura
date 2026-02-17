@@ -1,8 +1,10 @@
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
 
 type ReverseProxyApi = {
   get: () => Promise<{ data?: unknown }>;
-  (params: { id: string }): {
+  (params: {
+    id: string;
+  }): {
     delete: () => Promise<{ data?: unknown; error?: unknown }>;
     "connection-info": { get: () => Promise<{ data?: unknown }> };
   };
@@ -10,7 +12,10 @@ type ReverseProxyApi = {
 
 type UserSuspensionApi = {
   suspension: {
-    patch: (body: { isSuspended: boolean; suspendedUntil: string | null }) => Promise<{ error?: unknown }>;
+    patch: (body: {
+      isSuspended: boolean;
+      suspendedUntil: string | null;
+    }) => Promise<{ error?: unknown }>;
   };
 };
 

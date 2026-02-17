@@ -1,7 +1,7 @@
 import type { UpdateUserInput } from "@minikura/db";
 import { Elysia } from "elysia";
 import { userService } from "../application/di-container";
-import { requireAdmin, requireAuth } from "../lib/authorization";
+import { requireAdmin, requireAuth } from "../middleware/auth-guards";
 
 export const userRoutes = new Elysia({ prefix: "/users" })
   .use(requireAdmin)

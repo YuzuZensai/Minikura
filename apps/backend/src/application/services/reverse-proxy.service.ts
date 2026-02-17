@@ -1,5 +1,4 @@
-import type { EnvVariable, ReverseProxyWithEnvVars } from "@minikura/db";
-import { ConflictError, NotFoundError } from "../../domain/errors/base.error";
+import type { ReverseProxyWithEnvVars } from "@minikura/db";
 import {
   ReverseProxyCreatedEvent,
   ReverseProxyDeletedEvent,
@@ -10,71 +9,60 @@ import type {
   ReverseProxyRepository,
   ReverseProxyUpdateInput,
 } from "../../domain/repositories/reverse-proxy.repository";
-import { eventBus } from "../../infrastructure/event-bus";
+import type { IReverseProxyService } from "../interfaces/reverse-proxy.service.interface";
+import { BaseCrudService } from "./base-crud.service";
 
-export class ReverseProxyService {
-  constructor(private reverseProxyRepo: ReverseProxyRepository) {}
-
-  async getAllReverseProxies(
-    omitSensitive = false,
-  ): Promise<ReverseProxyWithEnvVars[]> {
-    return this.reverseProxyRepo.findAll(omitSensitive);
-  }
-
-  async getReverseProxyById(
-    id: string,
-    omitSensitive = false,
-  ): Promise<ReverseProxyWithEnvVars> {
-    const proxy = await this.reverseProxyRepo.findById(id, omitSensitive);
-    if (!proxy) {
-      throw new NotFoundError("ReverseProxyServer", id);
+export class ReverseProxyService
+  extends BaseCrudService<
+    ReverseProxyWithEnvVars,
+    ReverseProxyCreateInput,
+    ReverseProxyUpdateInput,
+    ReverseProxyRepository,
+    {
+      created: typeof ReverseProxyCreatedEvent;
+      updated: typeof ReverseProxyUpdatedEvent;
+      deleted: typeof ReverseProxyDeletedEvent;
     }
-    return proxy;
-  }
-
-  async createReverseProxy(
-    input: ReverseProxyCreateInput,
-  ): Promise<ReverseProxyWithEnvVars> {
-    const id = typeof input.id === "string" ? input.id : String(input.id);
-    const existing = await this.reverseProxyRepo.exists(id);
-    if (existing) {
-      throw new ConflictError("ReverseProxyServer", id);
-    }
-
-    const proxy = await this.reverseProxyRepo.create(input);
-    await eventBus.publish(
-      new ReverseProxyCreatedEvent(proxy.id, proxy.type, input),
+  >
+  implements IReverseProxyService
+{
+  constructor(reverseProxyRepo: ReverseProxyRepository) {
+    super(
+      reverseProxyRepo,
+      {
+        created: ReverseProxyCreatedEvent,
+        updated: ReverseProxyUpdatedEvent,
+        deleted: ReverseProxyDeletedEvent,
+      },
+      "ReverseProxyServer"
     );
-    return proxy;
   }
 
-  async updateReverseProxy(
-    id: string,
-    input: ReverseProxyUpdateInput,
-  ): Promise<ReverseProxyWithEnvVars> {
-    const proxy = await this.reverseProxyRepo.update(id, input);
-    await eventBus.publish(new ReverseProxyUpdatedEvent(id, input));
-    return proxy;
+  protected getEntityType(input: ReverseProxyCreateInput) {
+    return input.type || "VELOCITY";
   }
 
-  async deleteReverseProxy(id: string): Promise<void> {
-    await this.reverseProxyRepo.delete(id);
-    await eventBus.publish(new ReverseProxyDeletedEvent(id));
+  protected getInputId(input: ReverseProxyCreateInput): string {
+    return typeof input.id === "string" ? input.id : String(input.id);
   }
 
-  async setEnvVariable(
-    proxyId: string,
-    key: string,
-    value: string,
-  ): Promise<void> {
-    await this.reverseProxyRepo.setEnvVariable(proxyId, key, value);
+  getAllReverseProxies(omitSensitive = false) {
+    return this.getAll(omitSensitive);
   }
 
-  async getEnvVariables(proxyId: string): Promise<EnvVariable[]> {
-    return this.reverseProxyRepo.getEnvVariables(proxyId);
+  getReverseProxyById(id: string, omitSensitive = false) {
+    return this.getById(id, omitSensitive);
   }
 
-  async deleteEnvVariable(proxyId: string, key: string): Promise<void> {
-    await this.reverseProxyRepo.deleteEnvVariable(proxyId, key);
+  createReverseProxy(input: ReverseProxyCreateInput) {
+    return this.create(input);
+  }
+
+  updateReverseProxy(id: string, input: ReverseProxyUpdateInput) {
+    return this.update(id, input);
+  }
+
+  deleteReverseProxy(id: string) {
+    return this.delete(id);
   }
 }

@@ -6,8 +6,9 @@ import {
 } from "../../domain/events/server-lifecycle.events";
 import type { UserRepository } from "../../domain/repositories/user.repository";
 import { eventBus } from "../../infrastructure/event-bus";
+import type { IUserService } from "../interfaces/user.service.interface";
 
-export class UserService {
+export class UserService implements IUserService {
   constructor(private userRepo: UserRepository) {}
 
   async getUserById(id: string): Promise<User> {

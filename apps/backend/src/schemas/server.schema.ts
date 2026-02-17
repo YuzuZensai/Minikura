@@ -1,4 +1,9 @@
-import { MinecraftServerJarType, ReverseProxyServerType, ServerType, ServiceType } from "@minikura/db";
+import {
+  MinecraftServerJarType,
+  ReverseProxyServerType,
+  ServerType,
+  ServiceType,
+} from "@minikura/db";
 import { z } from "zod";
 import { GameMode, ServerDifficulty } from "../domain/entities/enums";
 

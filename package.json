@@ -25,12 +25,11 @@
     "k8s:build": "bun --filter @minikura/k8s-operator build",
     "k8s:start": "bun --filter @minikura/k8s-operator start",
     "k8s:crd": "bun --filter @minikura/k8s-operator apply-crds",
-    "k8s:token": "bash scripts/show-k8s-tokens.sh",
-    "k8s:rbac": "bash scripts/setup-rbac.sh",
     "install": "bash scripts/install.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
+    "@sinclair/typebox": "^0.34.48",
     "concurrently": "^9.2.1",
     "turbo": "^2.7.4"
   },

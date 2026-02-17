@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../domain/events/domain-event";
+import { logger } from "./logger";
 
 type EventHandler<T extends DomainEvent = DomainEvent> = (event: T) => void | Promise<void>;
 
@@ -14,7 +15,7 @@ export class EventBus {
     if (!this.handlers.has(eventName)) {
       this.handlers.set(eventName, new Set());
     }
-    this.handlers.get(eventName)!.add(handler as EventHandler);
+    this.handlers.get(eventName)?.add(handler as EventHandler);
     return () => {
       this.handlers.get(eventName)?.delete(handler as EventHandler);
     };
@@ -28,7 +29,7 @@ export class EventBus {
       try {
         await handler(event);
       } catch (error) {
-        console.error(`[EventBus] Error in handler for ${eventName}:`, error);
+        logger.error({ err: error, eventName }, "Error executing event handler");
       }
     }
   }

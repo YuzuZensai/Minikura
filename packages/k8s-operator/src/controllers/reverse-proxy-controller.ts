@@ -1,11 +1,10 @@
-import type { PrismaClient } from "@minikura/db";
-import type { ReverseProxyServer, CustomEnvironmentVariable } from "@minikura/db";
-import { BaseController } from "./base-controller";
-import type { ReverseProxyConfig } from "../types";
+import type { CustomEnvironmentVariable, ReverseProxyServer } from "@minikura/db";
 import {
   createReverseProxyServer,
   deleteReverseProxyServer,
 } from "../resources/reverseProxyServer";
+import type { ReverseProxyConfig } from "../types";
+import { BaseController } from "./base-controller";
 
 type ReverseProxyWithEnvVars = ReverseProxyServer & {
   env_variables: CustomEnvironmentVariable[];
@@ -13,10 +12,6 @@ type ReverseProxyWithEnvVars = ReverseProxyServer & {
 
 export class ReverseProxyController extends BaseController {
   private deployedProxies = new Map<string, ReverseProxyWithEnvVars>();
-
-  constructor(prisma: PrismaClient, namespace: string) {
-    super(prisma, namespace);
-  }
 
   protected getControllerName(): string {
     return "ReverseProxyController";
@@ -36,25 +31,32 @@ export class ReverseProxyController extends BaseController {
 
       const currentProxyIds = new Set(proxies.map((proxy) => proxy.id));
 
-      // Delete reverse proxy servers that are no longer in the database
       for (const [proxyId, proxy] of this.deployedProxies.entries()) {
         if (!currentProxyIds.has(proxyId)) {
-          console.log(
-            `Reverse proxy server ${proxy.id} (${proxyId}) has been removed from the database, deleting from Kubernetes...`
+          this.logger.info(
+            { proxyId, proxyType: proxy.type },
+            "Reverse proxy removed from database, deleting K8s resources"
           );
           await deleteReverseProxyServer(proxy.id, proxy.type, appsApi, coreApi, this.namespace);
           this.deployedProxies.delete(proxyId);
         }
       }
 
-      // Create or update reverse proxy servers that are in the database
       for (const proxy of proxies) {
         const deployedProxy = this.deployedProxies.get(proxy.id);
 
-        // If proxy doesn't exist yet or has been updated
         if (!deployedProxy || this.hasProxyChanged(deployedProxy, proxy)) {
-          console.log(
-            `${!deployedProxy ? "Creating" : "Updating"} reverse proxy server ${proxy.id} (${proxy.id}) in Kubernetes...`
+          const action = !deployedProxy ? "Creating" : "Updating";
+          this.logger.info(
+            {
+              proxyId: proxy.id,
+              proxyType: proxy.type,
+              action: action.toLowerCase(),
+              externalAddress: proxy.external_address,
+              externalPort: proxy.external_port,
+              listenPort: proxy.listen_port,
+            },
+            `${action} reverse proxy server in Kubernetes`
           );
 
           const proxyConfig: ReverseProxyConfig = {
@@ -66,6 +68,7 @@ export class ReverseProxyController extends BaseController {
             apiKey: proxy.api_key,
             type: proxy.type,
             memory: proxy.memory,
+            service_type: proxy.service_type,
             env_variables: proxy.env_variables?.map((ev) => ({
               key: ev.key,
               value: ev.value,
@@ -80,12 +83,11 @@ export class ReverseProxyController extends BaseController {
             this.namespace
           );
 
-          // Update cache
           this.deployedProxies.set(proxy.id, { ...proxy });
         }
       }
     } catch (error) {
-      console.error("Error syncing reverse proxy servers:", error);
+      this.logger.error({ err: error }, "Failed to sync reverse proxy servers to Kubernetes");
       throw error;
     }
   }
@@ -94,20 +96,20 @@ export class ReverseProxyController extends BaseController {
     oldProxy: ReverseProxyWithEnvVars,
     newProxy: ReverseProxyWithEnvVars
   ): boolean {
-    // Check basic properties
     const basicPropsChanged =
       oldProxy.external_address !== newProxy.external_address ||
       oldProxy.external_port !== newProxy.external_port ||
       oldProxy.listen_port !== newProxy.listen_port ||
-      oldProxy.description !== newProxy.description;
+      oldProxy.description !== newProxy.description ||
+      oldProxy.service_type !== newProxy.service_type;
 
     if (basicPropsChanged) return true;
 
-    // Check if environment variables have changed
     const oldEnvVars = oldProxy.env_variables || [];
     const newEnvVars = newProxy.env_variables || [];
 
     if (oldEnvVars.length !== newEnvVars.length) return true;
+
     for (const newEnv of newEnvVars) {
       const oldEnv = oldEnvVars.find((e) => e.key === newEnv.key);
       if (!oldEnv || oldEnv.value !== newEnv.value) {

@@ -1,5 +1,4 @@
 import { prisma, type UpdateSuspensionInput, type UpdateUserInput, type User } from "@minikura/db";
-import { UserRole } from "../../../domain/entities/enums";
 import type { UserRepository } from "../../../domain/repositories/user.repository";
 
 export class PrismaUserRepository implements UserRepository {

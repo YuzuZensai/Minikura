@@ -1,8 +1,5 @@
-import { NAMESPACE } from "../config/constants";
+import { API_GROUP, NAMESPACE } from "../config/constants";
 
-/**
- * Namespace definition
- */
 export const minikuraNamespace = {
   apiVersion: "v1",
   kind: "Namespace",
@@ -11,9 +8,6 @@ export const minikuraNamespace = {
   },
 };
 
-/**
- * Service account
- */
 export const minikuraServiceAccount = {
   apiVersion: "v1",
   kind: "ServiceAccount",
@@ -23,9 +17,6 @@ export const minikuraServiceAccount = {
   },
 };
 
-/**
- * Cluster role
- */
 export const minikuraClusterRole = {
   apiVersion: "rbac.authorization.k8s.io/v1",
   kind: "ClusterRole",
@@ -54,21 +45,18 @@ export const minikuraClusterRole = {
       verbs: ["get", "list", "watch", "create", "update", "patch", "delete"],
     },
     {
-      apiGroups: ["minikura.kirameki.cafe"],
+      apiGroups: [API_GROUP],
       resources: ["minecraftservers", "velocityproxies"],
       verbs: ["get", "list", "watch", "create", "update", "patch", "delete"],
     },
     {
-      apiGroups: ["minikura.kirameki.cafe"],
+      apiGroups: [API_GROUP],
       resources: ["minecraftservers/status", "velocityproxies/status"],
       verbs: ["get", "update", "patch"],
     },
   ],
 };
 
-/**
- * Cluster role binding
- */
 export const minikuraClusterRoleBinding = {
   apiVersion: "rbac.authorization.k8s.io/v1",
   kind: "ClusterRoleBinding",
@@ -89,9 +77,6 @@ export const minikuraClusterRoleBinding = {
   },
 };
 
-/**
- * Deployment for the Minikura operator
- */
 export const minikuraOperatorDeployment = {
   apiVersion: "apps/v1",
   kind: "Deployment",

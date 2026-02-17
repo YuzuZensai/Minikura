@@ -2,8 +2,8 @@
 
 import type { NormalServer, ReverseProxyServer } from "@minikura/api";
 import { useCallback, useEffect, useState } from "react";
+import { api } from "@/lib/api-client";
 import { getReverseProxyApi } from "@/lib/api-helpers";
-import { api } from "@/lib/api";
 
 export function useServerList() {
   const [normalServers, setNormalServers] = useState<NormalServer[]>([]);
@@ -23,8 +23,7 @@ export function useServerList() {
       if (proxyRes.data) {
         setReverseProxies(proxyRes.data as unknown as ReverseProxyServer[]);
       }
-    } catch (error) {
-      console.error("Failed to fetch servers:", error);
+    } catch (_error) {
     } finally {
       setLoading(false);
     }
@@ -32,17 +31,12 @@ export function useServerList() {
 
   const deleteServer = useCallback(
     async (id: string, type: "normal" | "proxy") => {
-      try {
-        if (type === "normal") {
-          await api.api.servers({ id }).delete();
-        } else {
-          await getReverseProxyApi()({ id }).delete();
-        }
-        await fetchServers();
-      } catch (error) {
-        console.error("Failed to delete server:", error);
-        throw error;
+      if (type === "normal") {
+        await api.api.servers({ id }).delete();
+      } else {
+        await getReverseProxyApi()({ id }).delete();
       }
+      await fetchServers();
     },
     [fetchServers]
   );

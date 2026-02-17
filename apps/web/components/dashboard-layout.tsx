@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Loader2,
-  LogOut,
-  Network,
-  Server,
-  Settings,
-  Users,
-} from "lucide-react";
+import { GitGraph, Loader2, LogOut, Network, Server, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -39,11 +32,10 @@ import { signOut, useSession } from "@/lib/auth-client";
 const menuItems = [
   { href: "/dashboard/users", icon: Users, label: "Users" },
   { href: "/dashboard/servers", icon: Server, label: "Servers" },
+  { href: "/dashboard/topology", icon: GitGraph, label: "Network" },
 ];
 
-const k8sMenuItems = [
-  { href: "/dashboard/k8s", icon: Network, label: "Resources" },
-];
+const k8sMenuItems = [{ href: "/dashboard/k8s", icon: Network, label: "Resources" }];
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -96,10 +88,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <SidebarMenu>
                 {menuItems.map((item) => (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href}
-                    >
+                    <SidebarMenuButton asChild isActive={pathname === item.href}>
                       <Link href={item.href}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.label}</span>
@@ -116,10 +105,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <SidebarMenu>
                 {k8sMenuItems.map((item) => (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href}
-                    >
+                    <SidebarMenuButton asChild isActive={pathname === item.href}>
                       <Link href={item.href}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.label}</span>
@@ -134,18 +120,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <div className="border-t p-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 px-2"
-              >
+              <Button variant="ghost" className="w-full justify-start gap-2 px-2">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>{userInitials}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col items-start text-sm">
                   <span className="font-medium">{session?.user?.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {session?.user?.email}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{session?.user?.email}</span>
                 </div>
               </Button>
             </DropdownMenuTrigger>

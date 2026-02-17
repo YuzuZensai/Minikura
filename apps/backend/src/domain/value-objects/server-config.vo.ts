@@ -28,7 +28,7 @@ export class ServerConfig {
   }
 
   getJvmArgs(): string {
-    const args: string[] = ["-Xmx" + this.memory + "M"];
+    const args: string[] = [`-Xmx${this.memory}M`];
 
     if (this.jvmOpts) {
       args.push(this.jvmOpts);
