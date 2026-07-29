@@ -30,7 +30,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
     "@sinclair/typebox": "^0.34.48",
-    "concurrently": "^9.2.1",
+    "concurrently": "^10.0.4",
     "turbo": "^2.7.4"
   },
   "dependencies": {
